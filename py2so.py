@@ -235,12 +235,14 @@ example:
                         continue
 
                     for d in dirs:
-                        if d in exclude_list:
+                        if d in exclude_list or os.path.join(root, d) in exclude_list or os.path.join(os.path.basename(root), d) in exclude_list:
                             os.system('rm -rf %s' % os.path.join(root, d))
 
                     for fil in files:
                         if fil in skipfil_list or os.path.join(root, fil) in skipfil_list or os.path.join(os.path.basename(root), fil) in skipdir_list:
                             continue
+                        elif fil in exclude_list:
+                            os.system('rm -f %s' % os.path.join(root, fil))
 
                         pref = fil.split('.')[0]
                         full_basename = root + '/' + pref
