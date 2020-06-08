@@ -26,10 +26,10 @@ py2so.py在工作过程中会调用这个`clang`文件
 
 ## 基本过程
 1. 利用linux的`rsync`命令把源代码同步到指定目录, 其间会排除一些文件夹
-  注意 **.svn**,  **.git** , **__pycache__** 等可能存有源代码调试过程中临时文件或者代码库的文件夹会默认不被同步
+  注意 **.svn**,  **.git** , **__pycache__** 等可能存有源代码调试过程中临时文件或者代码库的文件夹会**默认不被同步**
 2. cython把py转c, 有选项可指定哪些文件不被转换
 3. 调用ollvm把c转成so
-
+4. **注意**, 请部署文件检查下目录文件夹下有没有`__pycache__`, `.git`, `.svn`, `.idea`目录，有则删除。这些都是编写过程中产生的中间文件，**有泄密的危险性**
 
 ## 使用说明
 ```
@@ -39,23 +39,21 @@ py2so.py在工作过程中会调用这个`clang`文件
 ## 选项:
 ```
     -h,  --help          显示帮助菜单
-    -p,  --py            Python的子版本号, 默认值为 3。 次重要区别
-                         例: -p 2  (比如你使用python2)
+    -p,  --py            Python的子版本号, 默认值为 3。
+                         例: -p 2  (使用python2)
     -l,  --lib           指定要include的python库文件,必填。
-    -d,  --directory     Python项目路 径 (如果使用-d参数, 将加密整个Python项目)
-    -o,  --output        指定输出目录，如果不存在会自动建立。默认是当前目录下的.output文件夹
+    -d,  --directory     Python项目路径
+    -o,  --output        指定输出目录，如果不存在会自动建立。默认是当前目录下的./output文件夹
     -m,  --maintain      标记你不想加密的文件, 用逗号隔离
     -M,  --maintain_dir  标记你不想加密的文件夹, 用逗号隔离
     -e,  --exclude       rsync同步时不要同步的文件或者文件夹, 用逗号隔离
-    -k,  --keep          **注意**测试时才用这个选项，不删除中间生成的`py`, `c`文件
-    -D,  --delete        删除特定后缀的文件，比如`.ui`, `.proto`
+    -k,  --keep          注意测试时才用这个选项，不删除中间生成的`py`, `c`文件
+    -D,  --delete        删除特定后缀的文件，比如.ui, .proto
 ```
 
 ## 例子
-```
-python py2so.py -l ~/anaconda3/include/python3.6m -d ~/deploy_package_new/Gastroscope/Server -o ~/Gastroscope/Server -m ManageServer.py -D ui,proto
-python py2so.py -l ~/anaconda3/include/python3.6m -d ~/deploy_package_new/Gastroscope/Client -o ~/Gastroscope/Client -m ManageClient.py -D ui,proto
-```
+[编译Gastroscope项目](./run.sh)
+
 
 ## py2so简介
 1. py2so可以将python文件转化为so文件，达到加密python文件的目的
@@ -66,8 +64,3 @@ python py2so.py -l ~/anaconda3/include/python3.6m -d ~/deploy_package_new/Gastro
 6. 采用了把源文件目录同步到指定输出文件夹的方式，默认是 "./output"
 7. 可以指定用python2或者python3，默认是 python3
 8. 碰到无法编译的情况会退出
-
-
-
-
-
