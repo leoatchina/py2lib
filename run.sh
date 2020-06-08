@@ -1,6 +1,16 @@
-python py2so.py -l ~/anaconda3/include/python3.6m -d ~/Downloads/Gastroscope/Server -o ~/Server -m ManageServer.py -D ui,proto
-python py2so.py -l ~/anaconda3/include/python3.6m -d ~/Downloads/Gastroscope/Client -o ~/Client -m ManageClient.py -D ui,proto
-rm -rf ~/Gastroscope/Client
+if [ $# -gt 0 ]; then
+    KEEP="$1"
+else
+    KEEP="0"
+fi
+
+rm -rf ~/Server
+python py2so.py -l ~/anaconda3/include/python3.6m -d ~/Downloads/Gastroscope/Server -o ~/Server -m ManageServer.py,__init__.py -D ui,proto -k $KEEP 
 rm -rf ~/Gastroscope/Server
-mv ~/Client ~/Gastroscope
 mv ~/Server ~/Gastroscope
+
+
+rm -rf ~/Client
+python py2so.py -l ~/anaconda3/include/python3.6m -d ~/Downloads/Gastroscope/Client -o ~/Client -m ManageClient.py,__init__.py -D ui,proto -k $KEEP
+rm -rf ~/Gastroscope/Client
+mv ~/Client ~/Gastroscope

@@ -1,10 +1,10 @@
 
+import re
 import os
 import sys
 import getopt
 import random
 import string
-
 
 
 ########################### 老的混淆方式 ###########################################################3
@@ -66,11 +66,6 @@ def obscure_file(filename, list_char):
 
 
 ######################################################################################
-def strip_file(filename):
-    # 去除了源代码信息,即使so文件报错,也看不出来代码
-    os.system('cat {filename} | grep -v -E "^ \* " > {filename}.temp.cpp'.format(filename = filename))
-    os.system('rm {filename}'.format(filename = filename))
-    os.system('mv {filename}.temp.cpp {filename}'.format(filename = filename))
 
 
 def run_cmd(cmd):
@@ -82,7 +77,7 @@ def run_cmd(cmd):
 
 
 # 核心函数
-def transfer(full_basename, py_ver, lib_dir, keep = False, delete_suffix = []):
+def transfer(full_basename, py_ver, lib_dir, keep = 0, delete_suffix = []):
     '''
     full_basename is the absolute path of the py file, without .py surfix
     it with compile to full_basename.c and compile to .so file
@@ -94,7 +89,39 @@ def transfer(full_basename, py_ver, lib_dir, keep = False, delete_suffix = []):
 
         # strip cpp file
         if ret == 0:
-            strip_file("{full_basename}.cpp".format(full_basename = full_basename))
+            # keep == 2是全保留
+            # keep == 1 or 0, strip the file
+            if keep == 2:
+                pass
+            else:
+                with open('%s.cpp' % full_basename, 'r') as fp:
+                    lines = fp.readlines()
+
+                with open('%s.cpp' % full_basename, 'w') as fp:
+                    re_PYX_ERR = r'__PYX_ERR\(\d+,\s*\d+,(\s*\w+)\)'
+                    re_PYX_ERR_if = r';\s*if[\s\S]+__PYX_ERR[\S\s]*\n'
+                    found_pyx_err_define = False
+                    for line in lines:
+                        if line.startswith('#define'):
+                            fp.write(line)
+                            if '__PYX_ERR' in line and not found_pyx_err_define:
+                                found_pyx_err_define = True
+                        elif found_pyx_err_define and line.strip == '':
+                            # 写入一个假的行
+                            found_pyx_err_define = False
+                            fp.write(r" / * %s.py:0\n * /\n" % full_basename)
+                        elif line.startswith(r' * '):
+                            pass
+                        elif re.search(re_PYX_ERR, line):
+                            if re.search(re_PYX_ERR_if, line):
+                                line = re.sub(re_PYX_ERR_if, ';\n', line)
+                            else:
+                                words = re.search(re_PYX_ERR, line).group(1)
+                                line = re.sub(re_PYX_ERR, r'__PYX_ERR(0, 0, %s)' % words, line)
+                            fp.write(line)
+                        else:
+                            fp.write(line)
+
         else:
             raise Exception('cython failed')
 
@@ -107,8 +134,10 @@ def transfer(full_basename, py_ver, lib_dir, keep = False, delete_suffix = []):
 
         # print
         if ret == 0:
-            if not keep:
-                os.system('rm -f {full_basename}.py {full_basename}.cpp {full_basename}.o {full_basename}.cpp.temp.cpp {full_basename}'.format(full_basename = full_basename))
+            if keep:
+                pass
+            else:
+                os.system('rm -f {full_basename}.py {full_basename}.cpp {full_basename}.o {full_basename}'.format(full_basename = full_basename))
             print('Completed %s' % full_basename)
         else:
             raise Exception('ollvm to so failed')
@@ -116,9 +145,7 @@ def transfer(full_basename, py_ver, lib_dir, keep = False, delete_suffix = []):
         print('========================')
         print(cmd)
         print('========================')
-        raise e
-
-
+        raise(e)
 
 if __name__ == '__main__':
     help_show = '''
@@ -145,10 +172,11 @@ Options:
 example:
   python py2so.py -d test_dir -m __init__.py,setup.py
     '''
-    keep         = False
+    keep         = 0
     py_ver       = '3'
     lib_dir      = ''
     source_dir   = ''
+    origin_file  = ''
     output_dir   = './output'
     delete_list  = []
     exclude_list = []
@@ -156,7 +184,7 @@ example:
     skipfil_list = []
     try:
         options, args = getopt.getopt(sys.argv[1:],
-                "hp:l:o:d:f:m:M:e:k:D:",
+                "hp:l:f:o:d:m:M:e:k:D:",
                 ["help", "py=", "lib=", "file=", "output=", "directory=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="])
     except getopt.getopterror:
         print('get options error')
@@ -171,6 +199,8 @@ example:
             p_subv = value
         elif key in ['-l', '--lib']:
             lib_dir = value
+        elif key in ['-f', '--file']:
+            origin_file = value
         elif key in ['-o', '--output']:
             output_dir = value
         elif key in ['-d', '--directory']:
@@ -178,8 +208,10 @@ example:
         elif key in ['-e', '--exclude']:
             exclude_list = value.split(",")
         elif key in ['-k', '--keep']:
-            if value == '1':
-                keep = True
+            try:
+                keep = int(value)
+            except Exception:
+                keep = 0
         elif key in ['-D', '--delete']:
             delete_list = value.split(",")
         # 要保留的file
@@ -204,9 +236,11 @@ example:
     if not os.path.isdir(lib_dir):
         print('lib_dir must be given, useing -l or --lib')
         sys.exit(1)
-
-    if source_dir[-1] == r'/':
-        source_dir = source_dir[-1]
+    try:
+        if source_dir[-1] == r'/':
+            source_dir = source_dir[-1]
+    except Exception:
+        pass
 
     if output_dir[-1] == r'/':
         output_dir = output_dir[-1]
@@ -219,14 +253,24 @@ example:
         print('python version must be 2 or 3')
         sys.exit(1)
 
-    if source_dir:
-        if output_dir:
+    if output_dir:
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        # use rsync to transfer
+        if origin_file:
+            if not os.path.isfile(origin_file):
+                print('No such File %s, please check or use the Absolute Path' % origin_file)
+                sys.exit(1)
+            try:
+                os.system('cp %s %s' % (origin_file, output_dir))
+                target_path = os.path.join(output_dir, os.path.basename(origin_file)).replace(r'.py', '')
+                transfer(target_path, py_ver, lib_dir, keep)
+            except Exception as e:
+                raise e
+        elif source_dir:
             if not os.path.exists(source_dir):
                 print('No such Directory %s, please check or use the Absolute Path' % source_dir)
                 sys.exit(1)
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-            # use rsync to transfer
             rsync_cmd = 'rsync -azP --size-only %s --delete %s/ %s/' % (exclude_str, source_dir, output_dir)
             os.system(rsync_cmd)
             try:
@@ -250,7 +294,7 @@ example:
                             suffix = fil.split(r'.')[-1]
                             if suffix in delete_list:
                                 os.system('rm -f %s' % os.path.join(root, fil))
-                        
+
 
                         # delete pyc which is easily to reverse
                         if fil.endswith('.pyc') or fil in exclude_list:
@@ -258,6 +302,8 @@ example:
                         elif fil.endswith('.py'):
                             transfer(full_basename, py_ver, lib_dir, keep)
             except Exception as err:
+                if 'ollvm' in str(err):
+                    sys.exit(1)
                 raise(err)
             else:
                 print('%s to %s finished' % (source_dir, output_dir))
