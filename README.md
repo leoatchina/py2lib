@@ -58,4 +58,5 @@ py2so.py在工作过程中会调用这个`clang`文件
 
 ## 例子
 基本可以用于生产环境
-[编译Gastroscope项目](./run.sh)
+*****注意**，一定要直接 -o 到目标文件夹, deploy_package里的相应脚本要改一下
+[编译Gastroscope项目](./compile.sh)
