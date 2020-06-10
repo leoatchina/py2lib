@@ -89,9 +89,11 @@ def transfer(full_basename, py_ver, lib_dir, keep = 0, delete_suffix = []):
 
         # strip cpp file
         if ret == 0:
-            # keep == 2是全保留
-            # keep == 1 or 0, strip the file
-            if keep == 2:
+            # keep == 3   不对c 混淆，保留中间文件
+            # keep == 2   对c 混淆，保留中间文件
+            # keep == 1   不对c 混淆，不保留中间文件
+            # keep == 0,  对c 混淆，不保留中间文件
+            if keep % 2 == 1:
                 pass
             else:
                 with open('%s.cpp' % full_basename, 'r') as fp:
@@ -134,11 +136,11 @@ def transfer(full_basename, py_ver, lib_dir, keep = 0, delete_suffix = []):
 
         # print
         if ret == 0:
-            if keep:
-                pass
+            if keep > 1:
+                print('Completed %s' % full_basename)
             else:
                 os.system('rm -f {full_basename}.py {full_basename}.cpp {full_basename}.o {full_basename}'.format(full_basename = full_basename))
-            print('Completed %s' % full_basename)
+                print('Completed %s, and detelete the temp files' % full_basename)
         else:
             raise Exception('ollvm to so failed')
     except Exception as e:
@@ -307,4 +309,3 @@ example:
                 raise(err)
             else:
                 print('%s to %s finished' % (source_dir, output_dir))
-                print(rsync_cmd)
