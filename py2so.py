@@ -21,6 +21,7 @@ keyword_list = ['cout','+=','-=','int ','goto','asm', 'do', 'if','[',']',
                 'for', 'public', 'throw', 'while', 'default', 'friend',
                  'true','&lt;&lt;','cin','printf','==','&gt;&gt;','!=',]
 
+
 def random_char():
     r = chr(random.randint(97,122))
     char,char_r,list_chr = [],[],[]
@@ -162,14 +163,15 @@ Options:
   -p, --py            Python version, default value is 3
                       Example: -p 2  (means you use python2)
   -l, --lib           python libray for compile, must be offered
+  -f, --file          single file, -f supervised -d when offered at same time
   -d, --directory     Directory of your project (if use -d, you change the whole directory)
   -o, --output        Directory to store the compile results, default "./output"
   -e, --exclude       Directories or files that you do not want to sync to output file
                       dirs __pycache__, .vscode, .git, .idea will always not be synced
-  -k, --keep          if keep the compiled .c .o files
   -m, --maintain      list the file you don't want to transfer from py to so
                       example: -m __init__.py,setup.py,[poc,resource,venv,interface]
   -M, --maintaindir   like maintain, but dirs
+  -k, --keep          if keep the compiled .c .o files, or do confuse the c file
 
 example:
   python py2so.py -d test_dir -m __init__.py,setup.py
@@ -197,8 +199,6 @@ example:
         if key in ['-h', '--help']:
             print(help_show)
             sys.exit(0)
-        elif key in ['-p', '--py']:
-            p_subv = value
         elif key in ['-l', '--lib']:
             lib_dir = value
         elif key in ['-f', '--file']:
