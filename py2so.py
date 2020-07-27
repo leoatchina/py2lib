@@ -169,8 +169,9 @@ Options:
   -e, --exclude       Directories or files that you do not want to sync to output file
                       dirs __pycache__, .vscode, .git, .idea will always not be synced
   -m, --maintain      list the file you don't want to transfer from py to so
-                      example: -m __init__.py,setup.py,[poc,resource,venv,interface]
+                      example: -m __init__.py,setup.py
   -M, --maintaindir   like maintain, but dirs
+  -e, --exclude       
   -k, --keep          if keep the compiled .c .o files, or do confuse the c file
 
 example:
