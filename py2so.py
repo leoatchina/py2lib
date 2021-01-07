@@ -171,7 +171,7 @@ Options:
   -m, --maintain      list the file you don't want to transfer from py to so
                       example: -m __init__.py,setup.py
   -M, --maintaindir   like maintain, but dirs
-  -e, --exclude       
+  -D, --delete        files, dirs foreced to delete
   -k, --keep          if keep the compiled .c .o files, or do confuse the c file
 
 example:
