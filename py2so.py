@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# File              : py2so.py
+# Author            : leoatchina <leoatchina@outlook.com>
+# Date              : 2021.01.07
+# Last Modified Date: 2021.01.07
+# Last Modified By  : leoatchina <leoatchina@outlook.com>
 
 import re
 import os
@@ -7,67 +14,8 @@ import random
 import string
 
 
-########################### 老的混淆方式 ###########################################################3
-keyword_list = ['cout','+=','-=','int ','goto','asm', 'do', 'if','[',']',
-                'return', 'typedef', 'auto', 'double', 'inline','{','}',
-                'short', 'typeid', 'bool', 'int ','(',')',
-                'signed', 'typename', 'break', 'else','&gt;=','&lt;=',
-                'sizeof', 'union', 'case', 'enum', 'mutable',';',
-                'static', 'unsigned', 'catch', 'explicit', 'try',
-                'namespace', 'using', 'char','main','const',
-                'export', 'new', 'struct', 'class', 'switch',
-                'false', 'private', 'long','::', 'void','endl',
-                'float', 'protected', 'this', 'continue','++','--',
-                'for', 'public', 'throw', 'while', 'default', 'friend',
-                 'true','&lt;&lt;','cin','printf','==','&gt;&gt;','!=',]
-
-
-def random_char():
-    r = chr(random.randint(97,122))
-    char,char_r,list_chr = [],[],[]
-    for i in range(len(keyword_list)):
-        char.append(r+str(i))
-        char_r.append(keyword_list[i])
-    random.shuffle(char)
-    random.shuffle(char_r)
-    for i in range(len(char)):
-        list_chr.append([char[i],char_r[i]])
-    return list_chr
-
-def generate_define(list_chr):
-    define = []
-    for i in range(len(list_chr)):
-        define.append('#define '+ list_chr[i][0] +' '+list_chr[i][1])
-    return define
-
-def replace(list_char, str, confusion):
-    if confusion == ' /**/ ':
-        confusion = ' /*' + ''.join(random.sample(string.hexdigits,6)) +'*/ '
-    for i in list_char:
-        if i[1] in str:
-            str = str.replace(i[1],confusion+i[0]+confusion)
-    return str
-
-def obscure_file(filename, list_char):
-    # confusion = 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
-    # confusion = ' /*' + confusion + '*/ '
-    with open(filename,'r') as f:
-        with open(filename + ".temp.cpp", 'w') as m:
-            define = generate_define(list_char)
-            for i in define:
-                m.write(i+'\n')
-            for i in f.readlines():
-                if '#' in i[0]:
-                    m.write(i + '\n')
-                    continue
-                i = i.strip()
-                m.write(i + '\n')
-    os.system('rm %s' % filename)
-    os.system('mv %s %s' % (filename + ".temp.cpp", filename))
-
-
-######################################################################################
-
+def is_windows():
+    return sys.platform.startswith('win')
 
 def run_cmd(cmd):
     try:
@@ -76,16 +24,14 @@ def run_cmd(cmd):
         return e
     return ret
 
-
-# 核心函数
-def transfer(full_basename, py_ver, lib_dir, keep = 0, delete_suffix = []):
+def transfer(file_noext, py_ver, lib_dir, keep = 0, delete_suffix = []):
     '''
-    full_basename is the absolute path of the py file, without .py surfix
-    it with compile to full_basename.c and compile to .so file
+    file_noext is the absolute path of the py file, without .py surfix
+    it with compile to file_noext.c and compile to .so  or .dll file
     '''
     try:
         # cython to cpp
-        cmd = 'cython -{py_ver} {full_basename}.py --cplus -D'.format(py_ver = py_ver, full_basename = full_basename)
+        cmd = 'cython -{py_ver} {file_noext}.py --cplus -D'.format(py_ver = py_ver, file_noext = file_noext)
         ret = run_cmd(cmd)
 
         # strip cpp file
@@ -97,10 +43,10 @@ def transfer(full_basename, py_ver, lib_dir, keep = 0, delete_suffix = []):
             if keep % 2 == 1:
                 pass
             else:
-                with open('%s.cpp' % full_basename, 'r') as fp:
+                with open('%s.cpp' % file_noext, 'r') as fp:
                     lines = fp.readlines()
 
-                with open('%s.cpp' % full_basename, 'w') as fp:
+                with open('%s.cpp' % file_noext, 'w') as fp:
                     re_PYX_ERR = r'__PYX_ERR\(\d+,\s*\d+,(\s*\w+)\)'
                     re_PYX_ERR_if = r';\s*if[\s\S]+__PYX_ERR[\S\s]*\n'
                     found_pyx_err_define = False
@@ -112,7 +58,7 @@ def transfer(full_basename, py_ver, lib_dir, keep = 0, delete_suffix = []):
                         elif found_pyx_err_define and line.strip == '':
                             # 写入一个假的行
                             found_pyx_err_define = False
-                            fp.write(r" / * %s.py:0\n * /\n" % full_basename)
+                            fp.write(r" / * %s.py:0\n * /\n" % file_noext)
                         elif line.startswith(r' * '):
                             pass
                         elif re.search(re_PYX_ERR, line):
@@ -128,22 +74,28 @@ def transfer(full_basename, py_ver, lib_dir, keep = 0, delete_suffix = []):
         else:
             raise Exception('cython failed')
 
-        # .c to .so, with ollvm
+        # 把cpp 编译成so或者dll
         if ret == 0:
-            cmd = "clang {full_basename}.cpp -fPIC -shared -I{lib_dir} `python{py_ver}-config --ldflags` -o {full_basename}.so -mllvm -fla".format(py_ver = py_ver, full_basename = full_basename, lib_dir = lib_dir)
+            if is_windows():
+                cmd_template = "{clang} "
+            else:
+                cmd_template = "{clang} {file_noext}.cpp -fPIC -shared -I{lib_dir} `python{py_ver}-config --ldflags` -o {file_noext}.so -mllvm -fla"
+
+            cmd = cmd_templete.format(clange = clang, py_ver = py_ver, file_noext = file_noext, lib_dir = lib_dir)
             ret = run_cmd(cmd)
         else:
-            raise Exception('strip failed')
+            raise Exception('failed to replace strings in cpp files!')
 
-        # print
+        # tell if completed
         if ret == 0:
             if keep > 1:
-                print('Completed %s' % full_basename)
+                print('Completed %s, and keep the temp files' % file_noext)
             else:
-                os.system('rm -f {full_basename}.py {full_basename}.cpp {full_basename}.o {full_basename}'.format(full_basename = full_basename))
-                print('Completed %s, and detelete the temp files' % full_basename)
+                os.system('rm -f {file_noext}.py {file_noext}.cpp {file_noext}.o {file_noext}'.format(file_noext = file_noext))
+                print('Completed %s, and deleted the temp files' % file_noext)
         else:
-            raise Exception('ollvm to so failed')
+            raise Exception('Compile cpp to dynamic link file failed')
+
     except Exception as e:
         print('========================')
         print(cmd)
@@ -292,7 +244,7 @@ example:
                             os.system('rm -f %s' % os.path.join(root, fil))
 
                         pref = fil.split('.')[0]
-                        full_basename = root + '/' + pref
+                        file_noext = root + '/' + pref
                         if delete_list:
                             suffix = fil.split(r'.')[-1]
                             if suffix in delete_list:
@@ -303,7 +255,7 @@ example:
                         if fil.endswith('.pyc') or fil in exclude_list:
                             os.system('rm -f %s' % os.path.join(root, fil))
                         elif fil.endswith('.py'):
-                            transfer(full_basename, py_ver, lib_dir, keep)
+                            transfer(file_noext, py_ver, lib_dir, keep)
             except Exception as err:
                 if 'ollvm' in str(err):
                     sys.exit(1)
