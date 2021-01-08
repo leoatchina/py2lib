@@ -23,7 +23,7 @@ config.read(config_file)
 
 try:
     default = config['DEFAULT']
-    compile_templete = default('compile_templete')
+    compile_templete = default["compile_templete"]
 except Exception as e:
     print("请在配置文件里设置好编译模板")
     sys.exit(1)
@@ -54,7 +54,7 @@ def inexclude_list(filename, exclude_list):
 
     return False
 
-def sync_dirs(source_dir, output_dir, exclude_list = [], delete_output_dir = True):
+def sync_dirs(source_dir, output_dir, exclude_list = [], del_output = True):
     '''
     同步source_dir 和 targe_dir, 并排除exclude_list
     exclude_list 由basename, 以及相应的后缀组成
@@ -69,9 +69,9 @@ def sync_dirs(source_dir, output_dir, exclude_list = [], delete_output_dir = Tru
     except Exception as e:
         pass
 
-    if os.path.isdir(output_dir) and delete_output_dir:
+    if os.path.isdir(output_dir) and del_output:
         shutil.rmtree(output_dir, ignore_errors = True)
-        os.makedirs(output_dir)
+        os.makedirs(output_dir, exist_ok = True)
     else:
         if not os.path.isdir(output_dir):
             os.makedirs(output_dir)
@@ -86,7 +86,7 @@ def sync_dirs(source_dir, output_dir, exclude_list = [], delete_output_dir = Tru
             if not os.path.exists(file_t):
                 print('mkdir %s' % os.path.abspath(file_t))
                 os.makedirs(file_t, exist_ok = True)
-            sync_dirs(file_s, file_t, exclude_list, delete_output_dir = False)
+            sync_dirs(file_s, file_t, exclude_list, del_output = False)
         else:
             with open(file_s,'rb') as f_s:
                 with open(file_t,'wb') as f_t:
@@ -105,12 +105,11 @@ def transfer(file_noext, py_ver, lib_dir, keep = 0, delete_suffix = []):
 
         if ret > 0:
             raise Exception('cython to cpp file failed')
-        return
-        # keep == 3   对c进一步代换，保留中间文件
-        # keep == 2   不对c进一步代换，保留中间文件
-        # keep == 1   对c进一步代换，不保留中间文件
-        # keep == 0,  不对c进一步代换，不保留中间文件
-        if keep % 2 == 1:
+        # keep == 3   对cpp进一步替换，保留中间文件
+        # keep == 2   不对cpp进一步替换，保留中间文件
+        # keep == 1   对cpp进一步替换，不保留中间文件
+        # keep == 0,  不对cpp进一步替换，不保留中间文件
+        if (keep % 2) == 1:
             with open('%s.cpp' % file_noext, 'r') as fp:
                 lines = fp.readlines()
             with open('%s.cpp' % file_noext, 'w') as fp:
@@ -138,6 +137,7 @@ def transfer(file_noext, py_ver, lib_dir, keep = 0, delete_suffix = []):
                     else:
                         fp.write(line)
 
+        return
         # 把cpp 编译成so或者dll
         # compile_template = "{clang} {file_noext}.cpp -fPIC -shared -I{lib_dir} `python{py_ver}-config --ldflags` -o {file_noext}.so -mllvm -fla"
         cmd = compile_template.format(clang = clang, py_ver = py_ver, file_noext = file_noext, lib_dir = lib_dir)
@@ -150,8 +150,7 @@ def transfer(file_noext, py_ver, lib_dir, keep = 0, delete_suffix = []):
         if keep > 1:
             print('Completed %s, and keep the temp files' % file_noext)
         else:
-            ###  TODO
-            remove_list = [file_noext + ext for ext in ['.py', '.cpp', '', '.o']]
+            remove_list = [file_noext + ext for ext in ['.py', '.pyc', '.cpp', '', '.o']]
             for each in remove_list:
                 os.remove(each)
             print('Completed %s, and deleted the temp files' % file_noext)
@@ -162,7 +161,7 @@ def transfer(file_noext, py_ver, lib_dir, keep = 0, delete_suffix = []):
         print('========================')
         raise(e)
 
-def compile(source, output_dir, mdir_list = [], mfile_list = [])
+def compile(source, output_dir, mdir_list = [], mfile_list = []):
     '''
 
     '''
@@ -172,8 +171,8 @@ def compile(source, output_dir, mdir_list = [], mfile_list = [])
         os.system('cp %s %s' % (source, output_dir))
         target_path = os.path.join(output_dir, os.path.basename(source)).replace(r'.py', '')
         transfer(target_path, py_ver, lib_dir, keep)
-    elif
-        sync_dirs(source, output_dir, exclude_str)
+    else:
+        sync_dirs(source, output_dir, exclude_list)
 
         for root, dirs, files in os.walk(output_dir):
             if root in mdir_list or os.path.basename(root) in mdir_list:
@@ -226,7 +225,6 @@ Options:
 example:
   python py2so.py -d test_dir -m __init__.py,setup.py
     '''
-
 
 
     keep               = 0
@@ -312,6 +310,3 @@ example:
         compile(source_dir, output_dir, mdir_list, mfile_list)
     elif os.path.isfile(source_file):
         compile(source_file, output_dir)
-
-
-
