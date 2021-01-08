@@ -12,21 +12,21 @@ import sys
 import getopt
 import random
 import string
-import configparser
 import shutil
+# import configparser
 
 
 ########### read config
-config_file = "./config.ini"
-config = configparser.ConfigParser()
-config.read(config_file)
+# config_file = "./config.ini"
+# config = configparser.ConfigParser()
+# config.read(config_file)
 
-try:
-    default = config['DEFAULT']
-    compile_templete = default["compile_templete"]
-except Exception as e:
-    print("请在配置文件里设置好编译模板")
-    sys.exit(1)
+# try:
+#     default = config['DEFAULT']
+#     compile_templete = default["compile_templete"]
+# except Exception as e:
+#     print("请在配置文件里设置好编译模板")
+#     sys.exit(1)
 ###########
 
 def is_windows():
@@ -93,14 +93,14 @@ def sync_dirs(source_dir, output_dir, exclude_list = [], del_output = True):
                     print('copy %s to %s' % (file_s, file_t))
                     f_t.write(f_s.read())
 
-def transfer(file_noext, py_ver, lib_dir, keep = 0, delete_suffix = []):
+def transfer(file_noext, lib_dir, keep = 0, delete_suffix = []):
     '''
     file_noext is the absolute path of the py file without .py surfix
     it with compile to file_noext.c and compile to .so  or .dll file
     '''
     try:
         # cython to cpp
-        cmd = 'cython -{py_ver} {file_noext}.py --cplus -D'.format(py_ver = py_ver, file_noext = file_noext)
+        cmd = 'cython -3 {file_noext}.py --cplus -D'.format(file_noext = file_noext)
         ret = run_cmd(cmd)
 
         if ret > 0:
@@ -137,14 +137,15 @@ def transfer(file_noext, py_ver, lib_dir, keep = 0, delete_suffix = []):
                     else:
                         fp.write(line)
 
-        return
+        # return
         # 把cpp 编译成so或者dll
-        # compile_template = "{clang} {file_noext}.cpp -fPIC -shared -I{lib_dir} `python{py_ver}-config --ldflags` -o {file_noext}.so -mllvm -fla"
-        cmd = compile_template.format(clang = clang, py_ver = py_ver, file_noext = file_noext, lib_dir = lib_dir)
+        # compile_template = "{file_noext}.cpp -fPIC -shared -I{lib_dir} `python{py_ver}-config --ldflags` -o {file_noext}.so -mllvm -fla"
+        compile_templete = "cl.exe {file_noext}.cpp -fPIC -shared -I{lib_dir} `python3-config --ldflags` -o {file_noext}.dll -mllvm -fla"
+        cmd = compile_template.format(file_noext = file_noext, lib_dir = lib_dir)
         ret = run_cmd(cmd)
 
         # tell if completed
-        if ret > 0:
+        if ret is Error:
             raise Exception('Compile cpp to dynamic link file failed')
 
         if keep > 1:
@@ -161,6 +162,7 @@ def transfer(file_noext, py_ver, lib_dir, keep = 0, delete_suffix = []):
         print('========================')
         raise(e)
 
+
 def compile(source, output_dir, mdir_list = [], mfile_list = []):
     '''
 
@@ -170,7 +172,7 @@ def compile(source, output_dir, mdir_list = [], mfile_list = []):
             os.makedirs(output_dir)
         os.system('cp %s %s' % (source, output_dir))
         target_path = os.path.join(output_dir, os.path.basename(source)).replace(r'.py', '')
-        transfer(target_path, py_ver, lib_dir, keep)
+        transfer(target_path, lib_dir, keep)
     else:
         sync_dirs(source, output_dir, exclude_list)
 
@@ -195,7 +197,7 @@ def compile(source, output_dir, mdir_list = [], mfile_list = []):
                 if each_file.endswith('.pyc'):
                     os.system('rm -f %s' % os.path.join(root, each_file))
                 elif each_file.endswith('.py'):
-                    transfer(file_noext, py_ver, lib_dir, keep)
+                    transfer(file_noext, lib_dir, keep)
     print('%s to %s finished' % (source_dir, output_dir))
 
 if __name__ == '__main__':
@@ -227,16 +229,16 @@ example:
     '''
 
 
-    keep               = 0
-    py_ver             = '3'
-    lib_dir            = ''
-    source_dir         = ''
-    source_file        = ''
-    delete_list        = []
-    exclude_list       = []
-    mdir_list  = []
-    mfile_list = []
-    output_dir         = './output'
+    keep        = 0
+    lib_dir     = ''
+    source_file = ''
+    source_dir  = ''
+    output_dir  = ''
+
+    delete_list  = []
+    exclude_list = []
+    mdir_list    = []
+    mfile_list   = []
 
 
     try:
@@ -285,13 +287,9 @@ example:
                 mdir_list.append(d)
     exclude_list = list(set(['.gitignore', '.git', '.svn', '.root', '.vscode', '.idea', '__pycache__', '.task'] + exclude_list))
 
-    if py_ver not in ['2', '3']:
-        print('python version must be 2 or 3')
-        sys.exit(1)
     ##########  python library dir
     if len(lib_dir) and lib_dir[-1] == r'/':
         lib_dir = lib_dir[:-1]
-
     if not os.path.isdir(lib_dir):
         print('lib_dir must be given, useing -l or --lib')
         sys.exit(1)
@@ -299,13 +297,16 @@ example:
     if len(source_dir) > 0 and source_dir[-1] == r'/':
         source_dir = source_dir[-1]
 
-    if output_dir[-1] == r'/':
+    ######## output_dir
+    if len(output_dir) > 0 and output_dir[-1] == r'/':
         output_dir = output_dir[-1]
 
     if os.path.abspath(source_dir) == os.path.abspath(output_dir):
         print("Source dir equals output dir!")
         sys.exit(1)
 
+
+    ###### 最终要compile
     if os.path.isdir(source_dir):
         compile(source_dir, output_dir, mdir_list, mfile_list)
     elif os.path.isfile(source_file):
