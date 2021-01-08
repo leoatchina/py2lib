@@ -20,8 +20,13 @@ import shutil
 config_file = "./config.ini"
 config = configparser.ConfigParser()
 config.read(config_file)
-default = config['DEFAULT']
 
+try:
+    default = config['DEFAULT']
+    compile_templete = default('compile_templete')
+except Exception as e:
+    print("请在配置文件里设置好编译模板")
+    sys.exit(1)
 ###########
 
 def is_windows():
@@ -98,72 +103,101 @@ def transfer(file_noext, py_ver, lib_dir, keep = 0, delete_suffix = []):
         cmd = 'cython -{py_ver} {file_noext}.py --cplus -D'.format(py_ver = py_ver, file_noext = file_noext)
         ret = run_cmd(cmd)
 
-        # strip cpp file
-        if ret == 0:
-            # keep == 3   不对c 混淆，保留中间文件
-            # keep == 2   对c 混淆，保留中间文件
-            # keep == 1   不对c 混淆，不保留中间文件
-            # keep == 0,  对c 混淆，不保留中间文件
-            if keep % 2 == 1:
-                pass
-            else:
-                with open('%s.cpp' % file_noext, 'r') as fp:
-                    lines = fp.readlines()
-
-                with open('%s.cpp' % file_noext, 'w') as fp:
-                    re_PYX_ERR = r'__PYX_ERR\(\d+,\s*\d+,(\s*\w+)\)'
-                    re_PYX_ERR_if = r';\s*if[\s\S]+__PYX_ERR[\S\s]*\n'
-                    found_pyx_err_define = False
-                    for line in lines:
-                        if line.startswith('#define'):
-                            fp.write(line)
-                            if '__PYX_ERR' in line and not found_pyx_err_define:
-                                found_pyx_err_define = True
-                        elif found_pyx_err_define and line.strip == '':
-                            # 写入一个假的行
-                            found_pyx_err_define = False
-                            fp.write(r" / * %s.py:0\n * /\n" % file_noext)
-                        elif line.startswith(r' * '):
-                            pass
-                        elif re.search(re_PYX_ERR, line):
-                            if re.search(re_PYX_ERR_if, line):
-                                line = re.sub(re_PYX_ERR_if, ';\n', line)
-                            else:
-                                words = re.search(re_PYX_ERR, line).group(1)
-                                line = re.sub(re_PYX_ERR, r'__PYX_ERR(0, 0, %s)' % words, line)
-                            fp.write(line)
+        if ret > 0:
+            raise Exception('cython to cpp file failed')
+        return
+        # keep == 3   对c进一步代换，保留中间文件
+        # keep == 2   不对c进一步代换，保留中间文件
+        # keep == 1   对c进一步代换，不保留中间文件
+        # keep == 0,  不对c进一步代换，不保留中间文件
+        if keep % 2 == 1:
+            with open('%s.cpp' % file_noext, 'r') as fp:
+                lines = fp.readlines()
+            with open('%s.cpp' % file_noext, 'w') as fp:
+                re_PYX_ERR = r'__PYX_ERR\(\d+,\s*\d+,(\s*\w+)\)'
+                re_PYX_ERR_if = r';\s*if[\s\S]+__PYX_ERR[\S\s]*\n'
+                found_pyx_err_define = False
+                for line in lines:
+                    if line.startswith('#define'):
+                        fp.write(line)
+                        if '__PYX_ERR' in line and not found_pyx_err_define:
+                            found_pyx_err_define = True
+                    elif found_pyx_err_define and line.strip == '':
+                        # 写入一个假的行
+                        found_pyx_err_define = False
+                        fp.write(r" / * %s.py:0\n * /\n" % file_noext)
+                    elif line.startswith(r' * '):
+                        pass
+                    elif re.search(re_PYX_ERR, line):
+                        if re.search(re_PYX_ERR_if, line):
+                            line = re.sub(re_PYX_ERR_if, ';\n', line)
                         else:
-                            fp.write(line)
-        else:
-            raise Exception('cython failed')
+                            words = re.search(re_PYX_ERR, line).group(1)
+                            line = re.sub(re_PYX_ERR, r'__PYX_ERR(0, 0, %s)' % words, line)
+                        fp.write(line)
+                    else:
+                        fp.write(line)
 
         # 把cpp 编译成so或者dll
-        if ret == 0:
-            if is_windows():
-                cmd_template = "{clang} "
-            else:
-                cmd_template = "{clang} {file_noext}.cpp -fPIC -shared -I{lib_dir} `python{py_ver}-config --ldflags` -o {file_noext}.so -mllvm -fla"
-
-            cmd = cmd_templete.format(clange = clang, py_ver = py_ver, file_noext = file_noext, lib_dir = lib_dir)
-            ret = run_cmd(cmd)
-        else:
-            raise Exception('failed to replace strings in cpp files!')
+        # compile_template = "{clang} {file_noext}.cpp -fPIC -shared -I{lib_dir} `python{py_ver}-config --ldflags` -o {file_noext}.so -mllvm -fla"
+        cmd = compile_template.format(clang = clang, py_ver = py_ver, file_noext = file_noext, lib_dir = lib_dir)
+        ret = run_cmd(cmd)
 
         # tell if completed
-        if ret == 0:
-            if keep > 1:
-                print('Completed %s, and keep the temp files' % file_noext)
-            else:
-                os.system('rm -f {file_noext}.py {file_noext}.cpp {file_noext}.o {file_noext}'.format(file_noext = file_noext))
-                print('Completed %s, and deleted the temp files' % file_noext)
-        else:
+        if ret > 0:
             raise Exception('Compile cpp to dynamic link file failed')
+
+        if keep > 1:
+            print('Completed %s, and keep the temp files' % file_noext)
+        else:
+            ###  TODO
+            remove_list = [file_noext + ext for ext in ['.py', '.cpp', '', '.o']]
+            for each in remove_list:
+                os.remove(each)
+            print('Completed %s, and deleted the temp files' % file_noext)
 
     except Exception as e:
         print('========================')
         print(cmd)
         print('========================')
         raise(e)
+
+def compile(source, output_dir, mdir_list = [], mfile_list = [])
+    '''
+
+    '''
+    if os.path.isfile(source):
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        os.system('cp %s %s' % (source, output_dir))
+        target_path = os.path.join(output_dir, os.path.basename(source)).replace(r'.py', '')
+        transfer(target_path, py_ver, lib_dir, keep)
+    elif
+        sync_dirs(source, output_dir, exclude_str)
+
+        for root, dirs, files in os.walk(output_dir):
+            if root in mdir_list or os.path.basename(root) in mdir_list:
+                continue
+
+            for each_file in files:
+                if each_file in mfile_list or \
+                        os.path.join(root, each_file) in mfile_list or \
+                        os.path.join(os.path.basename(root), each_file) in mfile_list:
+                    continue
+
+                pref = each_file.split('.')[0]
+                file_noext = root + '/' + pref
+                if delete_list:
+                    suffix = each_file.split(r'.')[-1]
+                    if suffix in delete_list:
+                        os.system('rm -f %s' % os.path.join(root, each_file))
+
+                # delete pyc which is easily to reverse
+                if each_file.endswith('.pyc'):
+                    os.system('rm -f %s' % os.path.join(root, each_file))
+                elif each_file.endswith('.py'):
+                    transfer(file_noext, py_ver, lib_dir, keep)
+    print('%s to %s finished' % (source_dir, output_dir))
 
 if __name__ == '__main__':
     help_show = '''
@@ -195,7 +229,6 @@ example:
 
 
 
-
     keep               = 0
     py_ver             = '3'
     lib_dir            = ''
@@ -203,16 +236,17 @@ example:
     source_file        = ''
     delete_list        = []
     exclude_list       = []
-    maintain_dir_list  = []
-    maintain_file_list = []
+    mdir_list  = []
+    mfile_list = []
     output_dir         = './output'
 
 
-
     try:
-        options, args = getopt.getopt(sys.argv[1:],
-                "hp:l:f:o:d:m:M:e:k:D:",
-                ["help", "py=", "lib=", "file=", "output=", "directory=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="])
+        options, args = getopt.getopt(
+            sys.argv[1:],
+            "hp:l:f:o:d:m:M:e:k:D:",
+            ["help", "py=", "lib=", "file=", "output=", "directory=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
+        )
     except getopt.getopterror:
         print('get options error')
         print(help_show)
@@ -241,7 +275,7 @@ example:
             delete_list = value.split(",")
         # 要保留的file
         elif key in ['-m', '--maintain']:
-            maintain_file_list = value.split(",")
+            mfile_list = value.split(",")
         # 要保留的dir
         elif key in ['-M', '--maintaindir']:
             tmp_list = value.split(",")
@@ -250,25 +284,22 @@ example:
                     d = d[2:]
                 if d.endswith(r"/"):
                     d = d[:-1]
-                maintain_dir_list.append(d)
-
+                mdir_list.append(d)
     exclude_list = list(set(['.gitignore', '.git', '.svn', '.root', '.vscode', '.idea', '__pycache__', '.task'] + exclude_list))
-    # sys.exit(0)
 
-    try:
-        if lib_dir[-1] == r'/':
-            lib_dir = lib_dir[:-1]
-    except Exception as e:
-        pass
+    if py_ver not in ['2', '3']:
+        print('python version must be 2 or 3')
+        sys.exit(1)
+    ##########  python library dir
+    if len(lib_dir) and lib_dir[-1] == r'/':
+        lib_dir = lib_dir[:-1]
 
     if not os.path.isdir(lib_dir):
         print('lib_dir must be given, useing -l or --lib')
         sys.exit(1)
-    try:
-        if source_dir[-1] == r'/':
-            source_dir = source_dir[-1]
-    except Exception:
-        pass
+    ############# source_dir
+    if len(source_dir) > 0 and source_dir[-1] == r'/':
+        source_dir = source_dir[-1]
 
     if output_dir[-1] == r'/':
         output_dir = output_dir[-1]
@@ -277,46 +308,10 @@ example:
         print("Source dir equals output dir!")
         sys.exit(1)
 
-    if py_ver not in ['2', '3']:
-        print('python version must be 2 or 3')
-        sys.exit(1)
+    if os.path.isdir(source_dir):
+        compile(source_dir, output_dir, mdir_list, mfile_list)
+    elif os.path.isfile(source_file):
+        compile(source_file, output_dir)
 
-    if output_dir:
 
-        if source_file:
-            if not os.path.isfile(source_file):
-                print('No such source_file %s' % source_file)
-                sys.exit(1)
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-            os.system('cp %s %s' % (source_file, output_dir))
-            target_path = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
-            transfer(target_path, py_ver, lib_dir, keep)
 
-        elif source_dir:
-            if not os.path.exists(source_dir):
-                print('No such Directory %s' % source_dir)
-                sys.exit(1)
-            sync_dirs(source_dir, output_dir, exclude_str)
-
-            for root, dirs, files in os.walk(output_dir):
-                if root in maintain_dir_list or os.path.basename(root) in maintain_dir_list:
-                    continue
-
-                for each_file in files:
-                    if each_file in maintain_file_list or os.path.join(root, each_file) in maintain_file_list or os.path.join(os.path.basename(root), each_file) in maintain_dir_list:
-                        continue
-
-                    pref = each_file.split('.')[0]
-                    file_noext = root + '/' + pref
-                    if delete_list:
-                        suffix = each_file.split(r'.')[-1]
-                        if suffix in delete_list:
-                            os.system('rm -f %s' % os.path.join(root, each_file))
-
-                    # delete pyc which is easily to reverse
-                    if each_file.endswith('.pyc'):
-                        os.system('rm -f %s' % os.path.join(root, each_file))
-                    elif each_file.endswith('.py'):
-                        transfer(file_noext, py_ver, lib_dir, keep)
-        print('%s to %s finished' % (source_dir, output_dir))
