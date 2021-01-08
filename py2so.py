@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # File              : py2so.py
-# Author            : leoatchina <leoatchina@outlook.com>
+# Author            : taotao
 # Date              : 2021.01.07
-# Last Modified Date: 2021.01.07
-# Last Modified By  : leoatchina <leoatchina@outlook.com>
+# Last Modified Date: 2021.01.08
+# Last Modified By  : taotao
 
 import re
 import os
@@ -12,7 +12,17 @@ import sys
 import getopt
 import random
 import string
+import configparser
+import shutil
 
+
+########### read config
+config_file = "./config.ini"
+config = configparser.ConfigParser()
+config.read(config_file)
+default = config['DEFAULT']
+
+###########
 
 def is_windows():
     return sys.platform.startswith('win')
@@ -24,9 +34,63 @@ def run_cmd(cmd):
         return e
     return ret
 
+def inexclude_list(filename, exclude_list):
+    if os.sep in filename:
+        base_name = os.path.basename(filename)
+        if inexclude_list(base_name, exclude_list):
+            return True
+
+    if filename in exclude_list:
+        return True
+
+    file_noext, file_ext = os.path.splitext(filename)
+    if file_ext in exclude_list:
+        return True
+
+    return False
+
+def sync_dirs(source_dir, output_dir, exclude_list = [], delete_output_dir = True):
+    '''
+    同步source_dir 和 targe_dir, 并排除exclude_list
+    exclude_list 由basename, 以及相应的后缀组成
+    '''
+    if os.path.basename(source_dir) in exclude_list:
+        return
+    if os.path.abspath(source_dir) in exclude_list:
+        return
+    try:
+        if r"." + os.path.split(r".")[1] in exclude_list:
+            return
+    except Exception as e:
+        pass
+
+    if os.path.isdir(output_dir) and delete_output_dir:
+        shutil.rmtree(output_dir, ignore_errors = True)
+        os.makedirs(output_dir)
+    else:
+        if not os.path.isdir(output_dir):
+            os.makedirs(output_dir)
+
+    for filename in os.listdir(source_dir):
+        if inexclude_list(filename, exclude_list):
+            continue
+
+        file_s = source_dir + os.sep + filename
+        file_t = output_dir + os.sep + filename
+        if os.path.isdir(file_s):
+            if not os.path.exists(file_t):
+                print('mkdir %s' % os.path.abspath(file_t))
+                os.makedirs(file_t, exist_ok = True)
+            sync_dirs(file_s, file_t, exclude_list, delete_output_dir = False)
+        else:
+            with open(file_s,'rb') as f_s:
+                with open(file_t,'wb') as f_t:
+                    print('copy %s to %s' % (file_s, file_t))
+                    f_t.write(f_s.read())
+
 def transfer(file_noext, py_ver, lib_dir, keep = 0, delete_suffix = []):
     '''
-    file_noext is the absolute path of the py file, without .py surfix
+    file_noext is the absolute path of the py file without .py surfix
     it with compile to file_noext.c and compile to .so  or .dll file
     '''
     try:
@@ -70,7 +134,6 @@ def transfer(file_noext, py_ver, lib_dir, keep = 0, delete_suffix = []):
                             fp.write(line)
                         else:
                             fp.write(line)
-
         else:
             raise Exception('cython failed')
 
@@ -118,9 +181,9 @@ Options:
   -f, --file          single file, -f supervised -d when offered at same time
   -d, --directory     Directory of your project (if use -d, you change the whole directory)
   -o, --output        Directory to store the compile results, default "./output"
-  -e, --exclude       Directories or files that you do not want to sync to output file
-                      dirs __pycache__, .vscode, .git, .idea will always not be synced
-  -m, --maintain      list the file you don't want to transfer from py to so
+  -e, --exclude       Directories or files that you do not want to sync to output dir.
+                      __pycache__, .vscode, .git, .idea, .svn will always not be synced
+  -m, --maintain      list the file you don't want to transfer from py to dynamic link file
                       example: -m __init__.py,setup.py
   -M, --maintaindir   like maintain, but dirs
   -D, --delete        files, dirs foreced to delete
@@ -129,16 +192,23 @@ Options:
 example:
   python py2so.py -d test_dir -m __init__.py,setup.py
     '''
-    keep         = 0
-    py_ver       = '3'
-    lib_dir      = ''
-    source_dir   = ''
-    origin_file  = ''
-    output_dir   = './output'
-    delete_list  = []
-    exclude_list = []
-    skipdir_list = []
-    skipfil_list = []
+
+
+
+
+    keep               = 0
+    py_ver             = '3'
+    lib_dir            = ''
+    source_dir         = ''
+    source_file        = ''
+    delete_list        = []
+    exclude_list       = []
+    maintain_dir_list  = []
+    maintain_file_list = []
+    output_dir         = './output'
+
+
+
     try:
         options, args = getopt.getopt(sys.argv[1:],
                 "hp:l:f:o:d:m:M:e:k:D:",
@@ -155,7 +225,7 @@ example:
         elif key in ['-l', '--lib']:
             lib_dir = value
         elif key in ['-f', '--file']:
-            origin_file = value
+            source_file = value
         elif key in ['-o', '--output']:
             output_dir = value
         elif key in ['-d', '--directory']:
@@ -171,7 +241,7 @@ example:
             delete_list = value.split(",")
         # 要保留的file
         elif key in ['-m', '--maintain']:
-            skipfil_list = value.split(",")
+            maintain_file_list = value.split(",")
         # 要保留的dir
         elif key in ['-M', '--maintaindir']:
             tmp_list = value.split(",")
@@ -180,13 +250,16 @@ example:
                     d = d[2:]
                 if d.endswith(r"/"):
                     d = d[:-1]
-                skipdir_list.append(d)
+                maintain_dir_list.append(d)
+
     exclude_list = list(set(['.gitignore', '.git', '.svn', '.root', '.vscode', '.idea', '__pycache__', '.task'] + exclude_list))
-    exclude_str = " --exclude=" + " --exclude=".join(exclude_list)
     # sys.exit(0)
 
-    if lib_dir[-1] == r'/':
-        lib_dir = lib_dir[:-1]
+    try:
+        if lib_dir[-1] == r'/':
+            lib_dir = lib_dir[:-1]
+    except Exception as e:
+        pass
 
     if not os.path.isdir(lib_dir):
         print('lib_dir must be given, useing -l or --lib')
@@ -209,56 +282,41 @@ example:
         sys.exit(1)
 
     if output_dir:
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        # use rsync to transfer
-        if origin_file:
-            if not os.path.isfile(origin_file):
-                print('No such File %s, please check or use the Absolute Path' % origin_file)
+
+        if source_file:
+            if not os.path.isfile(source_file):
+                print('No such source_file %s' % source_file)
                 sys.exit(1)
-            try:
-                os.system('cp %s %s' % (origin_file, output_dir))
-                target_path = os.path.join(output_dir, os.path.basename(origin_file)).replace(r'.py', '')
-                transfer(target_path, py_ver, lib_dir, keep)
-            except Exception as e:
-                raise e
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+            os.system('cp %s %s' % (source_file, output_dir))
+            target_path = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
+            transfer(target_path, py_ver, lib_dir, keep)
+
         elif source_dir:
             if not os.path.exists(source_dir):
-                print('No such Directory %s, please check or use the Absolute Path' % source_dir)
+                print('No such Directory %s' % source_dir)
                 sys.exit(1)
-            rsync_cmd = 'rsync -azP --size-only %s --delete %s/ %s/' % (exclude_str, source_dir, output_dir)
-            os.system(rsync_cmd)
-            try:
-                for root, dirs, files in os.walk(output_dir):
-                    if root in skipdir_list or os.path.basename(root) in skipdir_list:
+            sync_dirs(source_dir, output_dir, exclude_str)
+
+            for root, dirs, files in os.walk(output_dir):
+                if root in maintain_dir_list or os.path.basename(root) in maintain_dir_list:
+                    continue
+
+                for each_file in files:
+                    if each_file in maintain_file_list or os.path.join(root, each_file) in maintain_file_list or os.path.join(os.path.basename(root), each_file) in maintain_dir_list:
                         continue
 
-                    for d in dirs:
-                        if d in exclude_list or os.path.join(root, d) in exclude_list or os.path.join(os.path.basename(root), d) in exclude_list:
-                            os.system('rm -rf %s' % os.path.join(root, d))
+                    pref = each_file.split('.')[0]
+                    file_noext = root + '/' + pref
+                    if delete_list:
+                        suffix = each_file.split(r'.')[-1]
+                        if suffix in delete_list:
+                            os.system('rm -f %s' % os.path.join(root, each_file))
 
-                    for fil in files:
-                        if fil in skipfil_list or os.path.join(root, fil) in skipfil_list or os.path.join(os.path.basename(root), fil) in skipdir_list:
-                            continue
-                        elif fil in exclude_list:
-                            os.system('rm -f %s' % os.path.join(root, fil))
-
-                        pref = fil.split('.')[0]
-                        file_noext = root + '/' + pref
-                        if delete_list:
-                            suffix = fil.split(r'.')[-1]
-                            if suffix in delete_list:
-                                os.system('rm -f %s' % os.path.join(root, fil))
-
-
-                        # delete pyc which is easily to reverse
-                        if fil.endswith('.pyc') or fil in exclude_list:
-                            os.system('rm -f %s' % os.path.join(root, fil))
-                        elif fil.endswith('.py'):
-                            transfer(file_noext, py_ver, lib_dir, keep)
-            except Exception as err:
-                if 'ollvm' in str(err):
-                    sys.exit(1)
-                raise(err)
-            else:
-                print('%s to %s finished' % (source_dir, output_dir))
+                    # delete pyc which is easily to reverse
+                    if each_file.endswith('.pyc'):
+                        os.system('rm -f %s' % os.path.join(root, each_file))
+                    elif each_file.endswith('.py'):
+                        transfer(file_noext, py_ver, lib_dir, keep)
+        print('%s to %s finished' % (source_dir, output_dir))
