@@ -80,7 +80,7 @@ def sync_dirs(source_dir, output_dir, exclude_list = [], del_output = True):
                     f_t.write(f_s.read())
 
 
-def trasfer_to_dynamic(file_noext, lib_dir, compile_template, keep = 0, delete_suffix = []):
+def source_to_library(file_noext, lib_dir, compile_template, keep = 0, delete_suffix = []):
     '''
     file_noext is the absolute path of the py file without .py surfix
     it with compile to file_noext.c and compile to .so  or .dll file
@@ -91,7 +91,7 @@ def trasfer_to_dynamic(file_noext, lib_dir, compile_template, keep = 0, delete_s
         ret = run_cmd(cmd)
 
         if ret > 0:
-            raise Exception('cython to cpp file failed')
+            raise Exception('cython to c file failed')
         # keep == 3   对cpp进一步替换，保留中间文件
         # keep == 2   不对cpp进一步替换，保留中间文件
         # keep == 1   对cpp进一步替换，不保留中间文件
@@ -126,15 +126,17 @@ def trasfer_to_dynamic(file_noext, lib_dir, compile_template, keep = 0, delete_s
         # 把cpp 编译成so或者dll
         cmd = compile_template.format(file_noext = file_noext, lib_dir = lib_dir)
         ret = run_cmd(cmd)
-
         # tell if completed
+        if is_windows():
+            os.system("move {file_noext}.dll {file_noext}.pyd".format(file_noext = file_noext))
+
         if ret > 0:
             raise Exception('Compile cpp to dynamic link file failed')
         else:
             if keep > 1:
                 print('Completed %s, and keep the temp files' % file_noext)
             else:
-                remove_list = [file_noext + ext for ext in ['.py', '.pyc', '.cpp', '', '.o', '.c']]
+                remove_list = [file_noext + ext for ext in ['', '.py', '.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']]
                 for each in remove_list:
                     try:
                         os.remove(each)
@@ -143,13 +145,14 @@ def trasfer_to_dynamic(file_noext, lib_dir, compile_template, keep = 0, delete_s
                 print('Completed %s, and deleted the temp files' % file_noext)
 
     except Exception as e:
-        print('========================')
-        print(cmd)
-        print('========================')
+        if "cmd" in globals():
+            print('========================')
+            print(cmd)
+            print('========================')
         raise(e)
 
 
-def compile(source, output_dir, compile_template, keep = 0, mdir_list = [], mfile_list = []):
+def pyfile_or_dir_to_library(source, output_dir, compile_template, keep = 0, mdir_list = [], mfile_list = []):
     '''
 
     '''
@@ -157,8 +160,8 @@ def compile(source, output_dir, compile_template, keep = 0, mdir_list = [], mfil
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         os.system('cp %s %s' % (source, output_dir))
-        target_path = os.path.join(output_dir, os.path.basename(source)).replace(r'.py', '')
-        trasfer_to_dynamic(target_path, lib_dir, compile_template, keep)
+        file_noext = os.path.join(output_dir, os.path.basename(source)).replace(r'.py', '')
+        source_to_library(file_noext, lib_dir, compile_template, keep)
     else:
         sync_dirs(source, output_dir, exclude_list)
 
@@ -174,20 +177,21 @@ def compile(source, output_dir, compile_template, keep = 0, mdir_list = [], mfil
 
                 file_noext = each_file.split('.')[0]
                 file_noext = root + os.sep + file_noext
-                if delete_list:
-                    suffix = each_file.split(r'.')[-1]
-                    if suffix in delete_list:
-                        os.system('rm -f %s' % os.path.join(root, each_file))
+
+                # if delete_list:
+                #     suffix = each_file.split(r'.')[-1]
+                #     if suffix in delete_list:
+                #         os.system('rm -f %s' % os.path.join(root, each_file))
 
                 # delete pyc which is easily to reverse
                 if each_file.endswith('.pyc'):
                     os.system('rm -f %s' % os.path.join(root, each_file))
                 elif each_file.endswith('.py'):
-                    trasfer_to_dynamic(file_noext, lib_dir, compile_template, keep)
+                    source_to_library(file_noext, lib_dir, compile_template, keep)
 
 if __name__ == '__main__':
     help_show = '''
-py2so is tool to change the .py to .so, you can use it to hide the source code of py
+py2so is tool to change the .py to .so or .pyd, you can use it to hide the source code of py
 It can be called by the main func as "from module import * "
 py2so needs the environment of python2
 
@@ -202,7 +206,7 @@ Options:
   -o, --output        Directory to store the compile results, default "./output"
   -e, --exclude       Directories or files that you do not want to sync to output dir.
                       __pycache__, .vscode, .git, .idea, .svn will always not be synced
-  -m, --maintain      list the file you don't want to trasfer_to_dynamic from py to dynamic link file
+  -m, --maintain      list the file you don't want to compile from py to library file
                       example: -m __init__.py,setup.py
   -M, --maintaindir   like maintain, but dirs
   -k, --keep          if keep the compiled .c .o files, or do confuse the c file
@@ -252,10 +256,7 @@ example:
         elif key in ['-e', '--exclude']:
             exclude_list = value.split(",")
         elif key in ['-k', '--keep']:
-            try:
-                keep = int(value)
-            except Exception:
-                keep = 0
+            keep = int(value)
         elif key in ['-D', '--delete']:
             delete_list = value.split(",")
         # 要保留的file
@@ -308,6 +309,6 @@ example:
 
     ###### 最终要compile
     if os.path.isdir(source_dir):
-        compile(source_dir, output_dir, compile_template, keep, mdir_list, mfile_list)
+        pyfile_or_dir_to_library(source_dir, output_dir, compile_template, keep, mdir_list, mfile_list)
     elif os.path.isfile(source_file):
-        compile(source_file, output_dir, compile_template, keep)
+        pyfile_or_dir_to_library(source_file, output_dir, compile_template, keep)
