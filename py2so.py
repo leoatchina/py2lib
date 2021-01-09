@@ -87,7 +87,7 @@ def trasfer_to_dynamic(file_noext, lib_dir, compile_template, keep = 0, delete_s
     '''
     try:
         # cython to cpp
-        cmd = 'cython -3 {file_noext}.py --cplus -D'.format(file_noext = file_noext)
+        cmd = 'cython -3 {file_noext}.py -D'.format(file_noext = file_noext)
         ret = run_cmd(cmd)
 
         if ret > 0:
@@ -97,9 +97,9 @@ def trasfer_to_dynamic(file_noext, lib_dir, compile_template, keep = 0, delete_s
         # keep == 1   对cpp进一步替换，不保留中间文件
         # keep == 0,  不对cpp进一步替换，不保留中间文件
         if (keep % 2) == 1:
-            with open('%s.cpp' % file_noext, 'r') as fp:
+            with open('%s.c' % file_noext, 'r') as fp:
                 lines = fp.readlines()
-            with open('%s.cpp' % file_noext, 'w') as fp:
+            with open('%s.c' % file_noext, 'w') as fp:
                 re_PYX_ERR = r'__PYX_ERR\(\d+,\s*\d+,(\s*\w+)\)'
                 re_PYX_ERR_if = r';\s*if[\s\S]+__PYX_ERR[\S\s]*\n'
                 found_pyx_err_define = False
@@ -124,7 +124,6 @@ def trasfer_to_dynamic(file_noext, lib_dir, compile_template, keep = 0, delete_s
                     else:
                         fp.write(line)
         # 把cpp 编译成so或者dll
-        # compile_template = "{file_noext}.cpp -fPIC -shared -I{lib_dir} `python{py_ver}-config --ldflags` -o {file_noext}.so -mllvm -fla"
         cmd = compile_template.format(file_noext = file_noext, lib_dir = lib_dir)
         ret = run_cmd(cmd)
 
@@ -135,7 +134,7 @@ def trasfer_to_dynamic(file_noext, lib_dir, compile_template, keep = 0, delete_s
             if keep > 1:
                 print('Completed %s, and keep the temp files' % file_noext)
             else:
-                remove_list = [file_noext + ext for ext in ['.py', '.pyc', '.cpp', '', '.o']]
+                remove_list = [file_noext + ext for ext in ['.py', '.pyc', '.cpp', '', '.o', '.c']]
                 for each in remove_list:
                     try:
                         os.remove(each)
@@ -150,7 +149,7 @@ def trasfer_to_dynamic(file_noext, lib_dir, compile_template, keep = 0, delete_s
         raise(e)
 
 
-def compile(source, output_dir, compile_template, mdir_list = [], mfile_list = []):
+def compile(source, output_dir, compile_template, keep = 0, mdir_list = [], mfile_list = []):
     '''
 
     '''
@@ -173,8 +172,8 @@ def compile(source, output_dir, compile_template, mdir_list = [], mfile_list = [
                         os.path.join(os.path.basename(root), each_file) in mfile_list:
                     continue
 
-                pref = each_file.split('.')[0]
-                file_noext = root + '/' + pref
+                file_noext = each_file.split('.')[0]
+                file_noext = root + os.sep + file_noext
                 if delete_list:
                     suffix = each_file.split(r'.')[-1]
                     if suffix in delete_list:
@@ -303,12 +302,12 @@ example:
             raise Exception("Please check the commandfile", commandfile)
     else:
         if is_windows():
-            compile_template = "cl.exe {file_noext}.cpp -fPIC -shared -I{lib_dir} `python3-config --ldflags` -o {file_noext}.dll -mllvm -fla"
+            compile_template = "cl.exe {file_noext}.c -fPIC -shared -I{lib_dir} `python3-config --ldflags` -o {file_noext}.dll -mllvm -fla"
         else:
             compile_template = ""
 
     ###### 最终要compile
     if os.path.isdir(source_dir):
-        compile(source_dir, output_dir, compile_template, mdir_list, mfile_list)
+        compile(source_dir, output_dir, compile_template, keep, mdir_list, mfile_list)
     elif os.path.isfile(source_file):
-        compile(source_file, output_dir, compile_template)
+        compile(source_file, output_dir, compile_template, keep)
