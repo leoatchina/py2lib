@@ -80,7 +80,7 @@ def sync_dirs(source_dir, output_dir, exclude_list = [], del_output = True):
                     f_t.write(f_s.read())
 
 
-def source_to_library(file_noext, lib_dir, compile_template, keep = 0, delete_suffix = []):
+def source_to_library(file_noext, lib_dir, compile_template, keep = 0):
     '''
     file_noext is the absolute path of the py file without .py surfix
     it with compile to file_noext.c and compile to .so  or .dll file
@@ -164,7 +164,6 @@ def pyfile_or_dir_to_library(source, output_dir, compile_template, keep = 0, mdi
         source_to_library(file_noext, lib_dir, compile_template, keep)
     else:
         sync_dirs(source, output_dir, exclude_list)
-
         for root, dirs, files in os.walk(output_dir):
             if root in mdir_list or os.path.basename(root) in mdir_list:
                 continue
@@ -175,19 +174,17 @@ def pyfile_or_dir_to_library(source, output_dir, compile_template, keep = 0, mdi
                         os.path.join(os.path.basename(root), each_file) in mfile_list:
                     continue
 
-                file_noext = each_file.split('.')[0]
-                file_noext = root + os.sep + file_noext
+                if each_file.startswith(r"."):
+                    pass
+                else:
+                    file_noext = each_file.split('.')[0]
+                    file_noext = root + os.sep + file_noext
 
-                # if delete_list:
-                #     suffix = each_file.split(r'.')[-1]
-                #     if suffix in delete_list:
-                #         os.system('rm -f %s' % os.path.join(root, each_file))
-
-                # delete pyc which is easily to reverse
-                if each_file.endswith('.pyc'):
-                    os.system('rm -f %s' % os.path.join(root, each_file))
-                elif each_file.endswith('.py'):
-                    source_to_library(file_noext, lib_dir, compile_template, keep)
+                    # delete pyc which is easily to reverse
+                    if each_file.endswith('.pyc'):
+                        os.remove(file_noext + '.pyc')
+                    elif each_file.endswith('.py'):
+                        source_to_library(file_noext, lib_dir, compile_template, keep)
 
 if __name__ == '__main__':
     help_show = '''
@@ -200,7 +197,6 @@ Usage: python py2so.py [options] ...
 Options:
   -h, --help          Show the help info
   -c, --commandfile   Set the command template file
-  -l, --lib           python libray for compile, must be offered
   -f, --file          single file, -f supervised -d when offered at same time
   -d, --directory     Directory of your project (if use -d, you change the whole directory)
   -o, --output        Directory to store the compile results, default "./output"
@@ -243,8 +239,6 @@ example:
         if key in ['-h', '--help']:
             print(help_show)
             sys.exit(0)
-        elif key in ['-l', '--lib']:
-            lib_dir = value
         elif key in ['-c', '--compilefile']:
             commandfile = value
         elif key in ['-f', '--file']:
@@ -273,12 +267,6 @@ example:
                 mdir_list.append(d)
     exclude_list = list(set(['.gitignore', '.git', '.svn', '.root', '.vscode', '.idea', '__pycache__', '.task'] + exclude_list))
 
-    ##########  python library dir
-    if len(lib_dir) and lib_dir[-1] == r'/':
-        lib_dir = lib_dir[:-1]
-    if not os.path.isdir(lib_dir):
-        print('lib_dir must be given, useing -l or --lib')
-        sys.exit(1)
     ############# source_dir
     if len(source_dir) > 0 and source_dir[-1] == r'/':
         source_dir = source_dir[-1]
@@ -301,11 +289,6 @@ example:
                 break
         if "compile_template" not in globals():
             raise Exception("Please check the commandfile", commandfile)
-    else:
-        if is_windows():
-            compile_template = "cl.exe {file_noext}.c -fPIC -shared -I{lib_dir} `python3-config --ldflags` -o {file_noext}.dll -mllvm -fla"
-        else:
-            compile_template = ""
 
     ###### 最终要compile
     if os.path.isdir(source_dir):
