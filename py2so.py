@@ -80,7 +80,7 @@ def sync_dirs(source_dir, output_dir, exclude_list = [], del_output = True):
                     f_t.write(f_s.read())
 
 
-def source_to_library(file_noext, lib_dir, compile_template, keep = 0):
+def source_to_library(file_noext, compile_template, keep = 0):
     '''
     file_noext is the absolute path of the py file without .py surfix
     it with compile to file_noext.c and compile to .so  or .dll file
@@ -124,8 +124,9 @@ def source_to_library(file_noext, lib_dir, compile_template, keep = 0):
                     else:
                         fp.write(line)
         # 把cpp 编译成so或者dll
-        cmd = compile_template.format(file_noext = file_noext, lib_dir = lib_dir)
+        cmd = compile_template.format(file_noext = file_noext)
         ret = run_cmd(cmd)
+        print(cmd)
         # tell if completed
         if is_windows():
             os.system("move {file_noext}.dll {file_noext}.pyd".format(file_noext = file_noext))
@@ -161,7 +162,7 @@ def pyfile_or_dir_to_library(source, output_dir, compile_template, keep = 0, mdi
             os.makedirs(output_dir)
         os.system('cp %s %s' % (source, output_dir))
         file_noext = os.path.join(output_dir, os.path.basename(source)).replace(r'.py', '')
-        source_to_library(file_noext, lib_dir, compile_template, keep)
+        source_to_library(file_noext, compile_template, keep)
     else:
         sync_dirs(source, output_dir, exclude_list)
         for root, dirs, files in os.walk(output_dir):
@@ -184,7 +185,7 @@ def pyfile_or_dir_to_library(source, output_dir, compile_template, keep = 0, mdi
                     if each_file.endswith('.pyc'):
                         os.remove(file_noext + '.pyc')
                     elif each_file.endswith('.py'):
-                        source_to_library(file_noext, lib_dir, compile_template, keep)
+                        source_to_library(file_noext, compile_template, keep)
 
 if __name__ == '__main__':
     help_show = '''
@@ -213,7 +214,6 @@ example:
     '''
 
     keep        = 0
-    lib_dir     = ''
     source_file = ''
     source_dir  = ''
     output_dir  = ''
@@ -227,8 +227,8 @@ example:
     try:
         options, args = getopt.getopt(
             sys.argv[1:],
-            "hc:l:f:d:o:m:M:e:k:D:",
-            ["help", "commandfile=", "lib=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
+            "hc:f:d:o:m:M:e:k:D:",
+            ["help", "commandfile=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
         )
     except getopt.getopterror:
         print('get options error')
