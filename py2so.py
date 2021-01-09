@@ -34,7 +34,8 @@ def inexclude_list(filename, exclude_list):
     if filename in exclude_list:
         return True
 
-    file_noext, file_ext = os.path.splitext(filename)
+    _, file_ext = os.path.splitext(filename)
+
     if file_ext in exclude_list:
         return True
 
@@ -80,14 +81,14 @@ def sync_dirs(source_dir, output_dir, exclude_list = [], del_output = True):
                     f_t.write(f_s.read())
 
 
-def source_to_library(file_noext, compile_template, keep = 0):
+def source_to_library(file_path_noext, compile_template, keep = 0):
     '''
-    file_noext is the absolute path of the py file without .py surfix
-    it with compile to file_noext.c and compile to .so  or .dll file
+    file_path_noext is the absolute path of the py file without .py surfix
+    it with compile to file_path_noext.c and compile to .so  or .dll file
     '''
     try:
         # cython to cpp
-        cmd = 'cython -3 {file_noext}.py -D'.format(file_noext = file_noext)
+        cmd = 'cython -3 {file_path_noext}.py -D'.format(file_path_noext = file_path_noext)
         ret = run_cmd(cmd)
 
         if ret > 0:
@@ -97,9 +98,9 @@ def source_to_library(file_noext, compile_template, keep = 0):
         # keep == 1   对cpp进一步替换，不保留中间文件
         # keep == 0,  不对cpp进一步替换，不保留中间文件
         if (keep % 2) == 1:
-            with open('%s.c' % file_noext, 'r') as fp:
+            with open('%s.c' % file_path_noext, 'r') as fp:
                 lines = fp.readlines()
-            with open('%s.c' % file_noext, 'w') as fp:
+            with open('%s.c' % file_path_noext, 'w') as fp:
                 re_PYX_ERR = r'__PYX_ERR\(\d+,\s*\d+,(\s*\w+)\)'
                 re_PYX_ERR_if = r';\s*if[\s\S]+__PYX_ERR[\S\s]*\n'
                 found_pyx_err_define = False
@@ -111,7 +112,7 @@ def source_to_library(file_noext, compile_template, keep = 0):
                     elif found_pyx_err_define and line.strip == '':
                         # 写入一个假的行
                         found_pyx_err_define = False
-                        fp.write(r" / * %s.py:0\n * /\n" % file_noext)
+                        fp.write(r" / * %s.py:0\n * /\n" % file_path_noext)
                     elif line.startswith(r' * '):
                         pass
                     elif re.search(re_PYX_ERR, line):
@@ -124,26 +125,25 @@ def source_to_library(file_noext, compile_template, keep = 0):
                     else:
                         fp.write(line)
         # 把cpp 编译成so或者dll
-        cmd = compile_template.format(file_noext = file_noext)
+        cmd = compile_template.format(file_path_noext = file_path_noext)
         ret = run_cmd(cmd)
-        print(cmd)
         # tell if completed
         if is_windows():
-            os.system("move {file_noext}.dll {file_noext}.pyd".format(file_noext = file_noext))
+            os.system("move {file_path_noext}.dll {file_path_noext}.pyd".format(file_path_noext = file_path_noext))
 
         if ret > 0:
             raise Exception('Compile cpp to dynamic link file failed')
         else:
             if keep > 1:
-                print('Completed %s, and keep the temp files' % file_noext)
+                print('Completed %s, and keep the temp files' % file_path_noext)
             else:
-                remove_list = [file_noext + ext for ext in ['', '.py', '.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']]
+                remove_list = [file_path_noext + ext for ext in ['', '.py', '.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']]
                 for each in remove_list:
                     try:
                         os.remove(each)
                     except Exception as e:
                         pass
-                print('Completed %s, and deleted the temp files' % file_noext)
+                print('Completed %s, and deleted the temp files' % file_path_noext)
 
     except Exception as e:
         if "cmd" in globals():
@@ -155,14 +155,17 @@ def source_to_library(file_noext, compile_template, keep = 0):
 
 def pyfile_or_dir_to_library(source, output_dir, compile_template, keep = 0, mdir_list = [], mfile_list = []):
     '''
-
+    把原始的source，可能是file, 可能是dir， 同步到output_dir，并且把里面的compile_template转成libray
+    compile_template: 写有转换模板里的文件里读出的转换模板语句
+    mdir_list: 不要转的文件夹列表
+    mfile_list:  不要转的文件列表
     '''
     if os.path.isfile(source):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         os.system('cp %s %s' % (source, output_dir))
-        file_noext = os.path.join(output_dir, os.path.basename(source)).replace(r'.py', '')
-        source_to_library(file_noext, compile_template, keep)
+        file_path_noext = os.path.join(output_dir, os.path.basename(source)).replace(r'.py', '')
+        source_to_library(file_path_noext, compile_template, keep)
     else:
         sync_dirs(source, output_dir, exclude_list)
         for root, dirs, files in os.walk(output_dir):
@@ -178,14 +181,14 @@ def pyfile_or_dir_to_library(source, output_dir, compile_template, keep = 0, mdi
                 if each_file.startswith(r"."):
                     pass
                 else:
-                    file_noext = each_file.split('.')[0]
-                    file_noext = root + os.sep + file_noext
+                    file_path_noext = each_file.split('.')[0]
+                    file_path_noext = root + os.sep + file_path_noext
 
                     # delete pyc which is easily to reverse
                     if each_file.endswith('.pyc'):
-                        os.remove(file_noext + '.pyc')
+                        os.remove(file_path_noext + '.pyc')
                     elif each_file.endswith('.py'):
-                        source_to_library(file_noext, compile_template, keep)
+                        source_to_library(file_path_noext, compile_template, keep)
 
 if __name__ == '__main__':
     help_show = '''
