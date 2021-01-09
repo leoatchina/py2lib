@@ -22,6 +22,7 @@ def run_cmd(cmd):
     try:
         ret = os.system(cmd)
     except Exception as e:
+        print(e)
         return 1
     return ret
 
@@ -41,7 +42,7 @@ def inexclude_list(filename, exclude_list):
 
     return False
 
-def sync_dirs(source_dir, output_dir, exclude_list = [], del_output = True):
+def sync_dirs(source_dir, target_dir, exclude_list = [], del_output = True):
     '''
     同步source_dir 和 targe_dir, 并排除exclude_list
     exclude_list 由basename, 以及相应的后缀组成
@@ -56,19 +57,17 @@ def sync_dirs(source_dir, output_dir, exclude_list = [], del_output = True):
     except Exception as e:
         pass
 
-    if os.path.isdir(output_dir) and del_output:
-        shutil.rmtree(output_dir, ignore_errors = True)
-        os.makedirs(output_dir, exist_ok = True)
-    else:
-        if not os.path.isdir(output_dir):
-            os.makedirs(output_dir)
+    if os.path.isdir(target_dir) and del_output:
+        shutil.rmtree(target_dir, ignore_errors = True)
+
+    os.makedirs(target_dir, exist_ok = True)
 
     for filename in os.listdir(source_dir):
         if inexclude_list(filename, exclude_list):
             continue
 
         file_s = source_dir + os.sep + filename
-        file_t = output_dir + os.sep + filename
+        file_t = target_dir + os.sep + filename
         if os.path.isdir(file_s):
             if not os.path.exists(file_t):
                 print('mkdir %s' % os.path.abspath(file_t))
@@ -81,14 +80,14 @@ def sync_dirs(source_dir, output_dir, exclude_list = [], del_output = True):
                     f_t.write(f_s.read())
 
 
-def source_to_library(file_path_noext, compile_template, keep = 0):
+def file_to_library(path_noext, compile_template, keep = 0):
     '''
-    file_path_noext is the absolute path of the py file without .py surfix
-    it with compile to file_path_noext.c and compile to .so  or .dll file
+    path_noext is the path of the py file without .py surfix
+    it with compile to path_noext.c and compile to .so  or .dll file
     '''
     try:
         # cython to cpp
-        cmd = 'cython -3 {file_path_noext}.py -D'.format(file_path_noext = file_path_noext)
+        cmd = 'cython -3 {path_noext}.py -D'.format(path_noext = path_noext)
         ret = run_cmd(cmd)
 
         if ret > 0:
@@ -98,9 +97,9 @@ def source_to_library(file_path_noext, compile_template, keep = 0):
         # keep == 1   对cpp进一步替换，不保留中间文件
         # keep == 0,  不对cpp进一步替换，不保留中间文件
         if (keep % 2) == 1:
-            with open('%s.c' % file_path_noext, 'r') as fp:
+            with open('%s.c' % path_noext, 'r') as fp:
                 lines = fp.readlines()
-            with open('%s.c' % file_path_noext, 'w') as fp:
+            with open('%s.c' % path_noext, 'w') as fp:
                 re_PYX_ERR = r'__PYX_ERR\(\d+,\s*\d+,(\s*\w+)\)'
                 re_PYX_ERR_if = r';\s*if[\s\S]+__PYX_ERR[\S\s]*\n'
                 found_pyx_err_define = False
@@ -112,7 +111,7 @@ def source_to_library(file_path_noext, compile_template, keep = 0):
                     elif found_pyx_err_define and line.strip == '':
                         # 写入一个假的行
                         found_pyx_err_define = False
-                        fp.write(r" / * %s.py:0\n * /\n" % file_path_noext)
+                        fp.write(r" / * %s.py:0\n * /\n" % path_noext)
                     elif line.startswith(r' * '):
                         pass
                     elif re.search(re_PYX_ERR, line):
@@ -125,25 +124,24 @@ def source_to_library(file_path_noext, compile_template, keep = 0):
                     else:
                         fp.write(line)
         # 把cpp 编译成so或者dll
-        cmd = compile_template.format(file_path_noext = file_path_noext)
+        cmd = compile_template.format(path_noext = path_noext)
         ret = run_cmd(cmd)
-        # tell if completed
-        if is_windows():
-            os.system("move {file_path_noext}.dll {file_path_noext}.pyd".format(file_path_noext = file_path_noext))
 
         if ret > 0:
             raise Exception('Compile cpp to dynamic link file failed')
         else:
+            if is_windows() and os.path.exists(path_noext + ".dll"):
+                os.system("move {path_noext}.dll {path_noext}.pyd".format(path_noext = path_noext))
             if keep > 1:
-                print('Completed %s, and keep the temp files' % file_path_noext)
+                print('Completed %s, and keep the temp files' % path_noext)
             else:
-                remove_list = [file_path_noext + ext for ext in ['', '.py', '.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']]
+                remove_list = [path_noext + ext for ext in ['', '.py', '.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']]
                 for each in remove_list:
                     try:
                         os.remove(each)
                     except Exception as e:
                         pass
-                print('Completed %s, and deleted the temp files' % file_path_noext)
+                print('Completed %s, and deleted the temp files' % path_noext)
 
     except Exception as e:
         if "cmd" in globals():
@@ -152,43 +150,33 @@ def source_to_library(file_path_noext, compile_template, keep = 0):
             print('========================')
         raise(e)
 
-
-def pyfile_or_dir_to_library(source, output_dir, compile_template, keep = 0, mdir_list = [], mfile_list = []):
+# TODO, add delete_list
+def dir_to_librarys(output_dir, compile_template, keep = 0, mdir_list = [], mfile_list = []):
     '''
-    把原始的source，可能是file, 可能是dir， 同步到output_dir，并且把里面的compile_template转成libray
+    把原始的source，可能是file, 可能是dir， 同步到output_dir，并且根据compile_template把py转成libray
     compile_template: 写有转换模板里的文件里读出的转换模板语句
     mdir_list: 不要转的文件夹列表
     mfile_list:  不要转的文件列表
     '''
-    if os.path.isfile(source):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        os.system('cp %s %s' % (source, output_dir))
-        file_path_noext = os.path.join(output_dir, os.path.basename(source)).replace(r'.py', '')
-        source_to_library(file_path_noext, compile_template, keep)
-    else:
-        sync_dirs(source, output_dir, exclude_list)
-        for root, dirs, files in os.walk(output_dir):
-            if root in mdir_list or os.path.basename(root) in mdir_list:
+    for root, _, files in os.walk(output_dir):
+        if root in mdir_list or os.path.basename(root) in mdir_list:
+            continue
+
+        for each_file in files:
+            if each_file in mfile_list or \
+                    each_file.startswith(r".") or \
+                    os.path.join(root, each_file) in mfile_list or \
+                    os.path.join(os.path.basename(root), each_file) in mfile_list:
                 continue
 
-            for each_file in files:
-                if each_file in mfile_list or \
-                        os.path.join(root, each_file) in mfile_list or \
-                        os.path.join(os.path.basename(root), each_file) in mfile_list:
-                    continue
+            path_noext = each_file.split('.')[0]
+            path_noext = root + os.sep + path_noext
+            # delete pyc which is easily to reverse
+            if each_file.endswith('.pyc'):
+                os.remove(path_noext + '.pyc')
+            elif each_file.endswith('.py'):
+                file_to_library(path_noext, compile_template, keep)
 
-                if each_file.startswith(r"."):
-                    pass
-                else:
-                    file_path_noext = each_file.split('.')[0]
-                    file_path_noext = root + os.sep + file_path_noext
-
-                    # delete pyc which is easily to reverse
-                    if each_file.endswith('.pyc'):
-                        os.remove(file_path_noext + '.pyc')
-                    elif each_file.endswith('.py'):
-                        source_to_library(file_path_noext, compile_template, keep)
 
 if __name__ == '__main__':
     help_show = '''
@@ -281,6 +269,7 @@ example:
     if os.path.abspath(source_dir) == os.path.abspath(output_dir):
         print("Source dir equals output dir!")
         sys.exit(1)
+
     ###### commandfile
     if "commandfile" in globals() and os.path.isfile(commandfile):
         with open(commandfile) as fp:
@@ -295,6 +284,11 @@ example:
 
     ###### 最终要compile
     if os.path.isdir(source_dir):
-        pyfile_or_dir_to_library(source_dir, output_dir, compile_template, keep, mdir_list, mfile_list)
+        sync_dirs(source_dir, output_dir, exclude_list)
+        dir_to_librarys(output_dir, compile_template, keep, mdir_list, mfile_list)
     elif os.path.isfile(source_file):
-        pyfile_or_dir_to_library(source_file, output_dir, compile_template, keep)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        os.system('cp %s %s' % (source_file, output_dir))
+        path_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
+        file_to_library(path_noext, compile_template, keep)
