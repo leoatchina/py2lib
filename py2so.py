@@ -3,7 +3,7 @@
 # File              : py2so.py
 # Author            : taotao
 # Date              : 2021.01.07
-# Last Modified Date: 2021.01.08
+# Last Modified Date: 2021.01.09
 # Last Modified By  : taotao
 
 import re
@@ -299,7 +299,7 @@ example:
             if line != '':
                 compile_template = line
                 break
-        if compile_template is None:
+        if "compile_template" not in globals():
             raise Exception("Please check the commandfile", commandfile)
     else:
         if is_windows():
