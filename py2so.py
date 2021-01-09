@@ -83,11 +83,11 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], del_output = True):
 def file_to_library(path_noext, compile_template, keep = 0):
     '''
     path_noext is the path of the py file without .py surfix
-    it with compile to path_noext.c and compile to .so  or .dll file
+    it with compile to path_noext.cpp and compile to .so  or .dll file
     '''
     try:
         # cython to cpp
-        cmd = 'cython -3 {path_noext}.py -D'.format(path_noext = path_noext)
+        cmd = 'cython -3 {path_noext}.py --cplus -D'.format(path_noext = path_noext)
         ret = run_cmd(cmd)
 
         if ret > 0:
@@ -97,9 +97,9 @@ def file_to_library(path_noext, compile_template, keep = 0):
         # keep == 1   对cpp进一步替换，不保留中间文件
         # keep == 0,  不对cpp进一步替换，不保留中间文件
         if (keep % 2) == 1:
-            with open('%s.c' % path_noext, 'r') as fp:
+            with open('%s.cpp' % path_noext, 'r') as fp:
                 lines = fp.readlines()
-            with open('%s.c' % path_noext, 'w') as fp:
+            with open('%s.cpp' % path_noext, 'w') as fp:
                 re_PYX_ERR = r'__PYX_ERR\(\d+,\s*\d+,(\s*\w+)\)'
                 re_PYX_ERR_if = r';\s*if[\s\S]+__PYX_ERR[\S\s]*\n'
                 found_pyx_err_define = False
@@ -129,19 +129,19 @@ def file_to_library(path_noext, compile_template, keep = 0):
 
         if ret > 0:
             raise Exception('Compile cpp to dynamic link file failed')
+        #######
+        if is_windows() and os.path.exists(path_noext + ".dll"):
+            os.system("move {path_noext}.dll {path_noext}.pyd".format(path_noext = path_noext))
+        if keep > 1:
+            print('Completed %s, and keep the temp files' % path_noext)
         else:
-            if is_windows() and os.path.exists(path_noext + ".dll"):
-                os.system("move {path_noext}.dll {path_noext}.pyd".format(path_noext = path_noext))
-            if keep > 1:
-                print('Completed %s, and keep the temp files' % path_noext)
-            else:
-                remove_list = [path_noext + ext for ext in ['', '.py', '.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']]
-                for each in remove_list:
-                    try:
-                        os.remove(each)
-                    except Exception as e:
-                        pass
-                print('Completed %s, and deleted the temp files' % path_noext)
+            remove_list = [path_noext + ext for ext in ['', '.py', '.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']]
+            for each in remove_list:
+                try:
+                    os.remove(each)
+                except Exception as e:
+                    pass
+            print('Completed %s, and deleted the temp files' % path_noext)
 
     except Exception as e:
         if "cmd" in globals():
@@ -171,10 +171,8 @@ def dir_to_librarys(output_dir, compile_template, keep = 0, mdir_list = [], mfil
 
             path_noext = each_file.split('.')[0]
             path_noext = root + os.sep + path_noext
-            # delete pyc which is easily to reverse
-            if each_file.endswith('.pyc'):
-                os.remove(path_noext + '.pyc')
-            elif each_file.endswith('.py'):
+            ######### compile
+            if each_file.endswith('.py'):
                 file_to_library(path_noext, compile_template, keep)
 
 
@@ -197,7 +195,7 @@ Options:
   -m, --maintain      list the file you don't want to compile from py to library file
                       example: -m __init__.py,setup.py
   -M, --maintaindir   like maintain, but dirs
-  -k, --keep          if keep the compiled .c .o files, or do confuse the c file
+  -k, --keep          if keep the compiled .cpp .o files, or do confuse the c file
   -D, --delete        files, dirs foreced to delete in the output_dir
 
 example:
