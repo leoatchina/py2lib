@@ -13,21 +13,7 @@ import getopt
 import random
 import string
 import shutil
-# import configparser
 
-
-########### read config
-# config_file = "./config.ini"
-# config = configparser.ConfigParser()
-# config.read(config_file)
-
-# try:
-#     default = config['DEFAULT']
-#     compile_templete = default["compile_templete"]
-# except Exception as e:
-#     print("请在配置文件里设置好编译模板")
-#     sys.exit(1)
-###########
 
 def is_windows():
     return sys.platform.startswith('win')
@@ -36,7 +22,7 @@ def run_cmd(cmd):
     try:
         ret = os.system(cmd)
     except Exception as e:
-        return e
+        return 1
     return ret
 
 def inexclude_list(filename, exclude_list):
@@ -93,7 +79,8 @@ def sync_dirs(source_dir, output_dir, exclude_list = [], del_output = True):
                     print('copy %s to %s' % (file_s, file_t))
                     f_t.write(f_s.read())
 
-def transfer(file_noext, lib_dir, keep = 0, delete_suffix = []):
+
+def trasfer_to_dynamic(file_noext, lib_dir, compile_template, keep = 0, delete_suffix = []):
     '''
     file_noext is the absolute path of the py file without .py surfix
     it with compile to file_noext.c and compile to .so  or .dll file
@@ -136,25 +123,25 @@ def transfer(file_noext, lib_dir, keep = 0, delete_suffix = []):
                         fp.write(line)
                     else:
                         fp.write(line)
-
-        # return
         # 把cpp 编译成so或者dll
         # compile_template = "{file_noext}.cpp -fPIC -shared -I{lib_dir} `python{py_ver}-config --ldflags` -o {file_noext}.so -mllvm -fla"
-        compile_templete = "cl.exe {file_noext}.cpp -fPIC -shared -I{lib_dir} `python3-config --ldflags` -o {file_noext}.dll -mllvm -fla"
         cmd = compile_template.format(file_noext = file_noext, lib_dir = lib_dir)
         ret = run_cmd(cmd)
 
         # tell if completed
-        if ret is Error:
+        if ret > 0:
             raise Exception('Compile cpp to dynamic link file failed')
-
-        if keep > 1:
-            print('Completed %s, and keep the temp files' % file_noext)
         else:
-            remove_list = [file_noext + ext for ext in ['.py', '.pyc', '.cpp', '', '.o']]
-            for each in remove_list:
-                os.remove(each)
-            print('Completed %s, and deleted the temp files' % file_noext)
+            if keep > 1:
+                print('Completed %s, and keep the temp files' % file_noext)
+            else:
+                remove_list = [file_noext + ext for ext in ['.py', '.pyc', '.cpp', '', '.o']]
+                for each in remove_list:
+                    try:
+                        os.remove(each)
+                    except Exception as e:
+                        pass
+                print('Completed %s, and deleted the temp files' % file_noext)
 
     except Exception as e:
         print('========================')
@@ -163,7 +150,7 @@ def transfer(file_noext, lib_dir, keep = 0, delete_suffix = []):
         raise(e)
 
 
-def compile(source, output_dir, mdir_list = [], mfile_list = []):
+def compile(source, output_dir, compile_template, mdir_list = [], mfile_list = []):
     '''
 
     '''
@@ -172,7 +159,7 @@ def compile(source, output_dir, mdir_list = [], mfile_list = []):
             os.makedirs(output_dir)
         os.system('cp %s %s' % (source, output_dir))
         target_path = os.path.join(output_dir, os.path.basename(source)).replace(r'.py', '')
-        transfer(target_path, lib_dir, keep)
+        trasfer_to_dynamic(target_path, lib_dir, compile_template, keep)
     else:
         sync_dirs(source, output_dir, exclude_list)
 
@@ -197,8 +184,7 @@ def compile(source, output_dir, mdir_list = [], mfile_list = []):
                 if each_file.endswith('.pyc'):
                     os.system('rm -f %s' % os.path.join(root, each_file))
                 elif each_file.endswith('.py'):
-                    transfer(file_noext, lib_dir, keep)
-    print('%s to %s finished' % (source_dir, output_dir))
+                    trasfer_to_dynamic(file_noext, lib_dir, compile_template, keep)
 
 if __name__ == '__main__':
     help_show = '''
@@ -210,24 +196,22 @@ Usage: python py2so.py [options] ...
 
 Options:
   -h, --help          Show the help info
-  -p, --py            Python version, default value is 3
-                      Example: -p 2  (means you use python2)
+  -c, --commandfile   Set the command template file
   -l, --lib           python libray for compile, must be offered
   -f, --file          single file, -f supervised -d when offered at same time
   -d, --directory     Directory of your project (if use -d, you change the whole directory)
   -o, --output        Directory to store the compile results, default "./output"
   -e, --exclude       Directories or files that you do not want to sync to output dir.
                       __pycache__, .vscode, .git, .idea, .svn will always not be synced
-  -m, --maintain      list the file you don't want to transfer from py to dynamic link file
+  -m, --maintain      list the file you don't want to trasfer_to_dynamic from py to dynamic link file
                       example: -m __init__.py,setup.py
   -M, --maintaindir   like maintain, but dirs
-  -D, --delete        files, dirs foreced to delete
   -k, --keep          if keep the compiled .c .o files, or do confuse the c file
+  -D, --delete        files, dirs foreced to delete in the output_dir
 
 example:
   python py2so.py -d test_dir -m __init__.py,setup.py
     '''
-
 
     keep        = 0
     lib_dir     = ''
@@ -244,8 +228,8 @@ example:
     try:
         options, args = getopt.getopt(
             sys.argv[1:],
-            "hp:l:f:o:d:m:M:e:k:D:",
-            ["help", "py=", "lib=", "file=", "output=", "directory=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
+            "hc:l:f:d:o:m:M:e:k:D:",
+            ["help", "commandfile=", "lib=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
         )
     except getopt.getopterror:
         print('get options error')
@@ -258,6 +242,8 @@ example:
             sys.exit(0)
         elif key in ['-l', '--lib']:
             lib_dir = value
+        elif key in ['-c', '--compilefile']:
+            commandfile = value
         elif key in ['-f', '--file']:
             source_file = value
         elif key in ['-o', '--output']:
@@ -304,10 +290,25 @@ example:
     if os.path.abspath(source_dir) == os.path.abspath(output_dir):
         print("Source dir equals output dir!")
         sys.exit(1)
-
+    ###### commandfile
+    if "commandfile" in globals() and os.path.isfile(commandfile):
+        with open(commandfile) as fp:
+            lines = fp.readlines()
+        for line in lines:
+            line = line.strip()
+            if line != '':
+                compile_template = line
+                break
+        if compile_template is None:
+            raise Exception("Please check the commandfile", commandfile)
+    else:
+        if is_windows():
+            compile_template = "cl.exe {file_noext}.cpp -fPIC -shared -I{lib_dir} `python3-config --ldflags` -o {file_noext}.dll -mllvm -fla"
+        else:
+            compile_template = ""
 
     ###### 最终要compile
     if os.path.isdir(source_dir):
-        compile(source_dir, output_dir, mdir_list, mfile_list)
+        compile(source_dir, output_dir, compile_template, mdir_list, mfile_list)
     elif os.path.isfile(source_file):
-        compile(source_file, output_dir)
+        compile(source_file, output_dir, compile_template)
