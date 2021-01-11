@@ -92,10 +92,7 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
 
         if ret > 0:
             raise Exception('python file to cpp file with cython failed')
-        # keep == 3   对cpp进一步替换，保留中间文件
-        # keep == 2   不对cpp进一步替换，保留中间文件
-        # keep == 1   对cpp进一步替换，不保留中间文件
-        # keep == 0,  不对cpp进一步替换，不保留中间文件
+
         if (keep % 2) == 1:
             with open('%s.cpp' % path_noext, 'r') as fp:
                 lines = fp.readlines()
@@ -132,9 +129,12 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
                 raise Exception('Compile cpp to dynamic link file failed')
             else:
                 raise Exception('Compile cpp to executable failed')
-
+        # 对文件作一些修改
         if is_windows() and os.path.exists(path_noext + ".dll") and to_library:
             os.system("move {path_noext}.dll {path_noext}.pyd".format(path_noext = path_noext))
+        elif not is_windows and not to_library and os.path.exists(path_noext):
+            os.system('chmod 755 ' + path_noext)
+
         ############ delete temprary files
         if keep > 1:
             print('Completed %s, and keep the temp files' % path_noext)
@@ -153,8 +153,6 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
             print(cmd)
             print('========================')
         raise(e)
-
-
 
 
 def file_to_library(path_noext, library_template, keep = 0):
@@ -201,34 +199,37 @@ Usage: python py2so.py [options] ...
 
 Options:
   -h, --help          Show the help info
-  -c, --commandfile   Set the command template file
+  -c, --commandfile   Set the command template file, must be offered
   -f, --file          single file, -f supervised -d when offered at same time
   -d, --directory     Directory of your project (if use -d, you change the whole directory)
-  -o, --output        Directory to store the compile results, default "./output"
-  -e, --exclude       Directories or files that you do not want to sync to output dir.
-                      __pycache__, .vscode, .git, .idea, .svn will always not be synced
+  -o, --output        Directory to store the compile results, must be different to source_dir
   -m, --maintain      list the file you don't want to compile from py to library file
                       example: -m __init__.py,setup.py
   -M, --maintaindir   like maintain, but dirs
-  -k, --keep          if keep the compiled .cpp .o files, or do confuse the c file
+  -e, --exclude       Directories or files that you do not want to sync to output dir.
+                      __pycache__, .vscode, .git, .idea, .svn will always not be synced
+  -k, --keep          keep == 3 confuse cpp file, keep temp files
+                      keep == 2 not confuse cpp file, keep temp files
+                      keep == 1 confuse cpp file, not keep temp files
+                      keep == 0 not confuse cpp file, not keep temp files
   -D, --delete        files, dirs foreced to delete in the output_dir
 
 example:
   python py2so.py -d test_dir -m __init__.py,setup.py
     '''
 
-    #####################################
+    ############ basic ########################
     keep        = 0
     source_file = ''
     source_dir  = ''
     output_dir  = ''
-    #####################################
+    commandfile = ''
+    ############ list #######################
     delete_list  = []
     exclude_list = []
     mdir_list    = []
     mfile_list   = []
-    #####################################
-    commandfile       = ''
+    ########### template ########################
     library_template  = ''
     execulte_template = ''
 
@@ -303,12 +304,16 @@ example:
         raise Exception("Please check the commandfile")
 
     ###### 最终要compile
-    if os.path.isdir(source_dir):
-        sync_dirs(source_dir, output_dir, exclude_list)
-        dir_to_librarys(output_dir, library_template, keep, mdir_list, mfile_list)
-    elif os.path.isfile(source_file):
+    ########## TODO  编译executable file
+    if os.path.isfile(source_file):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         os.system('cp %s %s' % (source_file, output_dir))
         path_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
-        file_to_library(path_noext, library_template, keep)
+        if execute_template != '':
+            file_to_executable(path_noext, execute_template, keep)
+        else:
+            file_to_library(path_noext, library_template, keep)
+    elif os.path.isdir(source_dir):
+        sync_dirs(source_dir, output_dir, exclude_list)
+        dir_to_librarys(output_dir, library_template, keep, mdir_list, mfile_list)
