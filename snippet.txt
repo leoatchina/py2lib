@@ -67,5 +67,6 @@ def obscure_file(filename, list_char):
     os.system('rm %s' % filename)
     os.system('mv %s %s' % (filename + ".temp.cpp", filename))
 
-
-# library_template = gcc.exe /std:c++17 /O2 /LD {path_noext}.cpp /Fe:{path_noext}.pyd /Fo:{path_noext}.obj -I C:\tools\Anaconda3\lib -I C:\tools\Anaconda3\include -I "C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\ucrt" -I "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.16.27023\include" -I "C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\shared" /link /LIBPATH:"C:\tools\Anaconda3\libs" /LIBPATH:"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.16.27023\lib\onecore\x64" /LIBPATH:"C:\Program Files (x86)\Windows Kits\10\Lib\10.0.18362.0\um\x64" /LIBPATH:"C:\Program Files (x86)\Windows Kits\10\Lib\10.0.18362.0\ucrt\x64"
+# pexports python38.dll > python38.def
+# dlltool.exe -D python38.dll -d python38.def -l libpython38.a
+# copy libpython38.a to the dir contains python38.lib, for example c:/tools/Anaconda3/libs
