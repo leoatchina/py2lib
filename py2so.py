@@ -148,12 +148,12 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
             print('Completed %s, and has deleted the temp files' % path_noext)
 
     except Exception as e:
-        if "cmd" in globals():
-            print('========================')
-            print(cmd)
-            print('========================')
-        else:
-            print('======== no command ============')
+        print('========================')
+        try:
+            print('>>>>', cmd)
+        except Exception:
+            print('>>>> no command')
+        print('========================')
         raise(e)
 
 

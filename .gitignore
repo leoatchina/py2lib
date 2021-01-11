@@ -2,7 +2,6 @@ GPATH
 GTAGS
 GRTAGS
 *DS_Store
-*.ini
 *.log
 *.tags
 *.so
@@ -34,7 +33,6 @@ GPATH
 GTAGS
 GRTAGS
 *DS_Store
-*.ini
 *.log
 *.tags
 *.so
