@@ -15,7 +15,7 @@ import string
 import shutil
 
 
-def is_windows():
+def WINDOWS():
     return sys.platform.startswith('win')
 
 def run_cmd(cmd):
@@ -79,6 +79,38 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], del_output = True):
                     print('copy %s to %s' % (file_s, file_t))
                     f_t.write(f_s.read())
 
+def confuse(cpp_file):
+    '''
+    对cython转换出来的cpp文件进行进一步的正则替换
+    '''
+    with open(cpp_file, 'r') as fp:
+        lines = fp.readlines()
+
+    with open(cpp_file, 'w') as fp:
+        re_PYX_ERR = r'__PYX_ERR\(\d+,\s*\d+,(\s*\w+)\)'
+        re_PYX_ERR_if = r';\s*if[\s\S]+__PYX_ERR[\S\s]*\n'
+        found_pyx_err_define = False
+        for line in lines:
+            if line.startswith('#define'):
+                fp.write(line)
+                if '__PYX_ERR' in line and not found_pyx_err_define:
+                    found_pyx_err_define = True
+            elif found_pyx_err_define and line.strip == '':
+                # 写入一个假的行
+                found_pyx_err_define = False
+                fp.write(r" / * %s.py:0\n * /\n" % path_noext)
+            elif line.startswith(r' * '):
+                pass
+            elif re.search(re_PYX_ERR, line):
+                if re.search(re_PYX_ERR_if, line):
+                    line = re.sub(re_PYX_ERR_if, ';\n', line)
+                else:
+                    words = re.search(re_PYX_ERR, line).group(1)
+                    line = re.sub(re_PYX_ERR, r'__PYX_ERR(0, 0, %s)' % words, line)
+                fp.write(line)
+            else:
+                fp.write(line)
+
 
 def compile_file(path_noext, template, to_library = True, keep = 0):
     '''
@@ -87,39 +119,19 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
     '''
     try:
         # cython to cpp
-        cmd = 'cython -3 {path_noext}.py --cplus -D'.format(path_noext = path_noext)
+        if to_library:
+            cmd = 'cython -3 {path_noext}.py --cplus -D'.format(path_noext = path_noext)
+        # exe file need --embed
+        else:
+            cmd = 'cython -3 {path_noext}.py --embed --cplus -D'.format(path_noext = path_noext)
         ret = run_cmd(cmd)
 
         if ret > 0:
             raise Exception('python file to cpp file with cython failed')
-
+        # 再加密
         if (keep % 2) == 1:
-            with open('%s.cpp' % path_noext, 'r') as fp:
-                lines = fp.readlines()
-            with open('%s.cpp' % path_noext, 'w') as fp:
-                re_PYX_ERR = r'__PYX_ERR\(\d+,\s*\d+,(\s*\w+)\)'
-                re_PYX_ERR_if = r';\s*if[\s\S]+__PYX_ERR[\S\s]*\n'
-                found_pyx_err_define = False
-                for line in lines:
-                    if line.startswith('#define'):
-                        fp.write(line)
-                        if '__PYX_ERR' in line and not found_pyx_err_define:
-                            found_pyx_err_define = True
-                    elif found_pyx_err_define and line.strip == '':
-                        # 写入一个假的行
-                        found_pyx_err_define = False
-                        fp.write(r" / * %s.py:0\n * /\n" % path_noext)
-                    elif line.startswith(r' * '):
-                        pass
-                    elif re.search(re_PYX_ERR, line):
-                        if re.search(re_PYX_ERR_if, line):
-                            line = re.sub(re_PYX_ERR_if, ';\n', line)
-                        else:
-                            words = re.search(re_PYX_ERR, line).group(1)
-                            line = re.sub(re_PYX_ERR, r'__PYX_ERR(0, 0, %s)' % words, line)
-                        fp.write(line)
-                    else:
-                        fp.write(line)
+            confuse(path_noext + '.cpp')
+
         # 把cpp 编译成so或者dll或者可执行
         cmd = template.format(path_noext = path_noext)
         ret = run_cmd(cmd)
@@ -129,10 +141,12 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
                 raise Exception('Compile cpp to dynamic link file failed')
             else:
                 raise Exception('Compile cpp to executable failed')
+
         # 对文件作一些修改
-        if is_windows() and os.path.exists(path_noext + ".dll") and to_library:
+        if WINDOWS() and os.path.exists(path_noext + ".dll") and to_library:
             os.system("move {path_noext}.dll {path_noext}.pyd".format(path_noext = path_noext))
-        elif not is_windows and not to_library and os.path.exists(path_noext):
+        # linux 755
+        elif not WINDOWS() and not to_library and os.path.exists(path_noext):
             os.system('chmod 755 ' + path_noext)
 
         ############ delete temprary files
@@ -142,10 +156,10 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
             else:
                 print('Completed %s.py to execute, and keep the temp files' % path_noext)
         else:
-            remove_list = [path_noext + ext for ext in ['.py', '.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']]
-            for each in remove_list:
+            files_to_remove = [path_noext + ext for ext in ['.py', '.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']]
+            for each_file in files_to_remove:
                 try:
-                    os.remove(each)
+                    os.remove(each_file)
                 except Exception:
                     pass
             if to_library:
@@ -156,19 +170,18 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
     except Exception as e:
         print('========================')
         try:
-            print('>>>>', cmd)
+            print(cmd)
         except Exception:
-            print('>>>> no command')
+            print("no command")
         print('========================')
         raise(e)
 
 
-def file_to_library(path_noext, library_template, keep = 0):
-    compile_file(path_noext, library_template, to_library = True, keep = keep)
+def file_to_library(path_noext, template, keep = 0):
+    compile_file(path_noext, template, to_library = True, keep = keep)
 
-def file_to_execute(path_noext, execute_template, keep = 0):
-    compile_file(path_noext, library_template, to_library = False, keep = keep)
-
+def file_to_execute(path_noext, template, keep = 0):
+    compile_file(path_noext, template, to_library = False, keep = keep)
 
 
 # TODO, add delete_list
@@ -229,7 +242,7 @@ example:
 
     ############ basic ########################
     keep        = 0
-    to_execute  = 0
+    to_library  = True
     source_file = ''
     source_dir  = ''
     output_dir  = ''
@@ -240,13 +253,13 @@ example:
     mdir_list    = []
     mfile_list   = []
     ########### template ########################
-    library_template  = ''
+    library_template = ''
     execute_template = ''
 
     try:
         options, args = getopt.getopt(
             sys.argv[1:],
-            "hxc:f:d:o:m:M:e:k:D:",
+            "hxc:f:d:o:m:M:e:k:D:x",
             ["help", "execute", "commandfile=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
         )
     except getopt.getopterror:
@@ -259,7 +272,7 @@ example:
             print(help_show)
             sys.exit(0)
         elif key in ['-x', '--execute']:
-            to_execute = 1
+            to_library = False
         elif key in ['-c', '--compilefile']:
             commandfile = value
         elif key in ['-f', '--file']:
@@ -312,22 +325,23 @@ example:
                 elif line.startswith("execute_template"):
                     execute_template = line.split(r'=')[1].strip()
 
-    if execute_template == '' and to_execute > 0:
-        raise Exception("Please check the commandfile if execute_template there")
-    elif library_template == '':
+    if library_template == '' and to_library:
         raise Exception("Please check the commandfile if library_template there")
+    elif execute_template == '' and not to_library:
+        raise Exception("Please check the commandfile if execute_template there")
 
     ###### 最终要compile
-    ########## TODO  编译executable file
     if os.path.isfile(source_file):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         shutil.copy(source_file, output_dir)
         path_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
-        if execute_template != '':
-            file_to_execute(path_noext, execute_template, keep)
-        else:
+        if to_library:
             file_to_library(path_noext, library_template, keep)
+        else:
+            file_to_execute(path_noext, execute_template, keep)
     elif os.path.isdir(source_dir):
+        if library_template == '':
+            raise Exception('dir_to_librarys need library_template')
         sync_dirs(source_dir, output_dir, exclude_list)
         dir_to_librarys(output_dir, library_template, keep, mdir_list, mfile_list)
