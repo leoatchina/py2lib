@@ -152,13 +152,15 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
             print('========================')
             print(cmd)
             print('========================')
+        else:
+            print('======== no command ============')
         raise(e)
 
 
 def file_to_library(path_noext, library_template, keep = 0):
     compile_file(path_noext, library_template, to_library = True, keep = keep)
 
-def file_to_executable(path_noext, execute_template, keep = 0):
+def file_to_execute(path_noext, execute_template, keep = 0):
     compile_file(path_noext, library_template, to_library = False, keep = keep)
 
 
@@ -231,7 +233,7 @@ example:
     mfile_list   = []
     ########### template ########################
     library_template  = ''
-    execulte_template = ''
+    execute_template = ''
 
     try:
         options, args = getopt.getopt(
@@ -298,7 +300,7 @@ example:
                 if line.startswith("library_template"):
                     library_template = line.split(r'=')[1].strip()
                 elif line.startswith("execute_template"):
-                    execulte_template = line.split(r'=')[1].strip()
+                    execute_template = line.split(r'=')[1].strip()
 
     if library_template == '':
         raise Exception("Please check the commandfile")
@@ -311,7 +313,7 @@ example:
         os.system('cp %s %s' % (source_file, output_dir))
         path_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
         if execute_template != '':
-            file_to_executable(path_noext, execute_template, keep)
+            file_to_execute(path_noext, execute_template, keep)
         else:
             file_to_library(path_noext, library_template, keep)
     elif os.path.isdir(source_dir):
