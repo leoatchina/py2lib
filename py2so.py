@@ -137,7 +137,10 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
 
         ############ delete temprary files
         if keep > 1:
-            print('Completed %s, and keep the temp files' % path_noext)
+            if to_library:
+                print('Completed %s.py to dynamic, and keep the temp files' % path_noext)
+            else:
+                print('Completed %s.py to execute, and keep the temp files' % path_noext)
         else:
             remove_list = [path_noext + ext for ext in ['.py', '.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']]
             for each in remove_list:
@@ -145,7 +148,10 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
                     os.remove(each)
                 except Exception:
                     pass
-            print('Completed %s, and has deleted the temp files' % path_noext)
+            if to_library:
+                print('Completed %s.py to dynamic, and has deleted the temp files' % path_noext)
+            else:
+                print('Completed %s.py to execute, and has deleted the temp files' % path_noext)
 
     except Exception as e:
         print('========================')
@@ -201,6 +207,7 @@ Usage: python py2so.py [options] ...
 
 Options:
   -h, --help          Show the help info
+  -x, --execute       Compile to executable file
   -c, --commandfile   Set the command template file, must be offered
   -f, --file          single file, -f supervised -d when offered at same time
   -d, --directory     Directory of your project (if use -d, you change the whole directory)
@@ -222,6 +229,7 @@ example:
 
     ############ basic ########################
     keep        = 0
+    to_execute  = 0
     source_file = ''
     source_dir  = ''
     output_dir  = ''
@@ -238,8 +246,8 @@ example:
     try:
         options, args = getopt.getopt(
             sys.argv[1:],
-            "hc:f:d:o:m:M:e:k:D:",
-            ["help", "commandfile=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
+            "hxc:f:d:o:m:M:e:k:D:",
+            ["help", "execute", "commandfile=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
         )
     except getopt.getopterror:
         print('get options error')
@@ -250,6 +258,8 @@ example:
         if key in ['-h', '--help']:
             print(help_show)
             sys.exit(0)
+        elif key in ['-x', '--execute']:
+            to_execute = 1
         elif key in ['-c', '--compilefile']:
             commandfile = value
         elif key in ['-f', '--file']:
@@ -302,15 +312,17 @@ example:
                 elif line.startswith("execute_template"):
                     execute_template = line.split(r'=')[1].strip()
 
-    if library_template == '':
-        raise Exception("Please check the commandfile")
+    if execute_template == '' and to_execute > 0:
+        raise Exception("Please check the commandfile if execute_template there")
+    elif library_template == '':
+        raise Exception("Please check the commandfile if library_template there")
 
     ###### 最终要compile
     ########## TODO  编译executable file
     if os.path.isfile(source_file):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        os.system('cp %s %s' % (source_file, output_dir))
+        shutil.copy(source_file, output_dir)
         path_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
         if execute_template != '':
             file_to_execute(path_noext, execute_template, keep)
