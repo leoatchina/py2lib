@@ -3,16 +3,16 @@
 # File              : py2so.py
 # Author            : taotao
 # Date              : 2021.01.07
-# Last Modified Date: 2021.01.09
-# Last Modified By  : taotao
+# Last Modified Date: 2021.01.12
+# Last Modified By  : taotao <taotao@myhexin.com>
 
 import re
 import os
 import sys
 import getopt
-import random
-import string
 import shutil
+# import random
+# import string
 
 
 def WINDOWS():
@@ -54,7 +54,7 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], del_output = True):
     try:
         if r"." + os.path.split(r".")[1] in exclude_list:
             return
-    except Exception as e:
+    except Exception:
         pass
 
     if os.path.isdir(target_dir) and del_output:
@@ -82,6 +82,7 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], del_output = True):
 def confuse(cpp_file):
     '''
     对cython转换出来的cpp文件进行进一步的正则替换
+    为了不被强行调用时，爆出execption的详细情况
     '''
     with open(cpp_file, 'r') as fp:
         lines = fp.readlines()
@@ -184,7 +185,7 @@ def file_to_execute(path_noext, template, keep = 0):
     compile_file(path_noext, template, to_library = False, keep = keep)
 
 
-# TODO, add delete_list
+# TODO, add delete_list to delete the unnecessary files or dirs during compile stage.
 def dir_to_librarys(output_dir, library_template, keep = 0, mdir_list = [], mfile_list = []):
     '''
     把原始的source，可能是file, 可能是dir， 同步到output_dir，并且根据library_template把py转成libray
@@ -237,7 +238,7 @@ Options:
   -D, --delete        files, dirs foreced to delete in the output_dir
 
 example:
-  python py2so.py -d test_dir -m __init__.py,setup.py
+  python py2so.py -d test_dir -o target_dir -m __init__.py,setup.py -c config.ini
     '''
 
     ############ basic ########################
@@ -262,8 +263,8 @@ example:
             "hxc:f:d:o:m:M:e:k:D:x",
             ["help", "execute", "commandfile=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
         )
-    except getopt.getopterror:
-        print('get options error')
+    except getopt.getopterror as e:
+        print('get options error', e)
         print(help_show)
         sys.exit(1)
 
