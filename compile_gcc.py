@@ -11,7 +11,7 @@ import os
 os.environ['PATH'] = r"d:\mingw\bin" + ';' + os.environ['PATH']
 
 os.system(
-    r"d:\python36\python py2so.py "
+    r"d:\Anaconda3\python py2so.py "
     r"-d C:\Work\Projects\py2so_ollvm "
     r"-o C:\Users\taotao\Desktop\test "
     r"-c config_gcc.ini "
@@ -20,7 +20,7 @@ os.system(
 )
 
 os.system(
-    r"d:\python36\python py2so.py "
+    r"d:\Anaconda3\python py2so.py "
     r"-f C:\Work\Projects\py2so_ollvm\debug\aaa.py "
     r"-x "
     r"-o C:\Users\taotao\Desktop\test\debug "
