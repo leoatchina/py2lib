@@ -79,15 +79,15 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], del_output = True):
                     print('copy %s to %s' % (file_s, file_t))
                     f_t.write(f_s.read())
 
-def confuse(cpp_file):
+def confuse(c_source_file):
     '''
-    对cython转换出来的cpp文件进行进一步的正则替换
+    对cython转换出来的c文件进行进一步的正则替换
     为了不被强行调用时，爆出execption的详细情况
     '''
-    with open(cpp_file, 'r') as fp:
+    with open(c_source_file, 'r') as fp:
         lines = fp.readlines()
 
-    with open(cpp_file, 'w') as fp:
+    with open(c_source_file, 'w') as fp:
         re_PYX_ERR = r'__PYX_ERR\(\d+,\s*\d+,(\s*\w+)\)'
         re_PYX_ERR_if = r';\s*if[\s\S]+__PYX_ERR[\S\s]*\n'
         found_pyx_err_define = False
@@ -116,32 +116,32 @@ def confuse(cpp_file):
 def compile_file(path_noext, template, to_library = True, keep = 0):
     '''
     path_noext is the path of the py file without .py surfix
-    it with compile to path_noext.cpp and compile to .so  or .dll file
+    it with compile to c_file and compile to .so  or .dll file
     '''
     try:
-        # cython to cpp
+        # cython to c file
         if to_library:
-            cmd = 'cython -3 {path_noext}.py --cplus -D'.format(path_noext = path_noext)
+            cmd = 'cython -3 {path_noext}.py -D'.format(path_noext = path_noext)
         # exe file need --embed
         else:
-            cmd = 'cython -3 {path_noext}.py --embed --cplus -D'.format(path_noext = path_noext)
+            cmd = 'cython -3 {path_noext}.py --embed -D'.format(path_noext = path_noext)
         ret = run_cmd(cmd)
 
         if ret > 0:
-            raise Exception('python file to cpp file with cython failed')
+            raise Exception('python file to c file with cython failed')
         # 再加密
         if (keep % 2) == 1:
-            confuse(path_noext + '.cpp')
+            confuse(path_noext + '.c')
 
-        # 把cpp 编译成so或者dll或者可执行
+        # 把c 编译成so或者dll或者可执行
         cmd = template.format(path_noext = path_noext)
         ret = run_cmd(cmd)
 
         if ret > 0:
             if to_library:
-                raise Exception('Compile cpp to dynamic link file failed')
+                raise Exception('Compile c file to dynamic link file failed')
             else:
-                raise Exception('Compile cpp to executable failed')
+                raise Exception('Compile c file to executable failed')
 
         # 对文件作一些修改
         if WINDOWS() and os.path.exists(path_noext + ".dll") and to_library:
@@ -231,10 +231,10 @@ Options:
   -M, --maintaindir   like maintain, but dirs
   -e, --exclude       Directories or files that you do not want to sync to output dir.
                       __pycache__, .vscode, .git, .idea, .svn will always not be synced
-  -k, --keep          keep == 3 confuse cpp file, keep temp files
-                      keep == 2 not confuse cpp file, keep temp files
-                      keep == 1 confuse cpp file, not keep temp files
-                      keep == 0 not confuse cpp file, not keep temp files
+  -k, --keep          keep == 3 confuse c file, keep temp files
+                      keep == 2 not confuse c file, keep temp files
+                      keep == 1 confuse c file, not keep temp files
+                      keep == 0 not confuse c file, not keep temp files
   -D, --delete        files, dirs foreced to delete in the output_dir
 
 example:
