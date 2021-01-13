@@ -5,7 +5,8 @@ build:
   script:
     - echo "compile"
     - dir
-    - d:/anaconda3/python compile_gcc.py 
+    - d:\Anaconda3\python py2so.py -d .\debug -o D:\test -c config_gcc.ini -m aaa.py -e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp
+    - d:\Anaconda3\python py2so.py -f .\debug\aaa.py -x -o D:\test -c config_gcc.ini -e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp 
   only:
     - deploy 
   tags:
