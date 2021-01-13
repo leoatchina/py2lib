@@ -3,6 +3,8 @@ stages:
 build:
   stage: build
   script:
+    - echo "compile"
+    - dir
     - d:/anaconda3/python compile_gcc.py 
   only:
     - deploy 
