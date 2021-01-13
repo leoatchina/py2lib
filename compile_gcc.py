@@ -10,7 +10,7 @@ import os
 
 os.environ['PATH'] = r"d:\mingw\bin" + ';' + os.environ['PATH']
 
-os.system(
+cmd = (
     r"d:\Anaconda3\python py2so.py "
     r"-d .\debug "
     r"-o D:\test "
@@ -18,8 +18,12 @@ os.system(
     r"-m aaa.py "
     r"-e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp "
 )
+print(cmd)
+os.system(cmd)
 
-os.system(
+print('###########################')
+
+cmd = (
     r"d:\Anaconda3\python py2so.py "
     r"-f .\debug\aaa.py "
     r"-x "
@@ -28,3 +32,5 @@ os.system(
     r"-e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp "
     r"-k 2"
 )
+print(cmd)
+os.system(cmd)
