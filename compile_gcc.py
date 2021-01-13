@@ -21,8 +21,6 @@ cmd = (
 print(cmd)
 os.system(cmd)
 
-print('###########################')
-
 cmd = (
     r"d:\Anaconda3\python py2so.py "
     r"-f .\check\aaa.py "

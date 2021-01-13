@@ -346,3 +346,5 @@ example:
             raise Exception('dir_to_librarys need library_template')
         sync_dirs(source_dir, output_dir, exclude_list)
         dir_to_librarys(output_dir, library_template, keep, mdir_list, mfile_list)
+    else:
+        print('neither source file nor soure dir offered, please check!!!')
