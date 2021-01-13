@@ -3,11 +3,9 @@ stages:
 build:
   stage: build
   script:
-    - echo "compile"
     - dir
-    # - d:\Anaconda3\python py2so.py -d .\check -o D:\test -c config_gcc.ini -m aaa.py -e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp
-    # - d:\Anaconda3\python py2so.py -f .\check\aaa.py -x -o D:\test -c config_gcc.ini -e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp 
-    - d:\Anaconda3\python compile_gcc.py 
+    - d:\Anaconda3\python py2so.py -d .\check -o D:\test -c config_gcc.ini -m aaa.py -e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp
+    - d:\Anaconda3\python py2so.py -f .\check\aaa.py -x -o D:\test -c config_gcc.ini -e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp 
   only:
     - deploy 
   tags:
