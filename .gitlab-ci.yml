@@ -1,11 +1,15 @@
 stages:
   - build
+
 build:
+
   stage: build
+
   script:
     - d:/anaconda3/python compile_gcc.py 
 
   only:
     - deploy 
+
   tags:
     - windows
