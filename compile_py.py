@@ -42,7 +42,7 @@ def inexclude_list(filename, exclude_list):
 
     return False
 
-def sync_dirs(source_dir, target_dir, exclude_list = [], del_output = True):
+def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, del_output_dir = True):
     '''
     同步source_dir 和 targe_dir, 并排除exclude_list
     exclude_list 由basename, 以及相应的后缀组成
@@ -57,7 +57,7 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], del_output = True):
     except Exception:
         pass
 
-    if os.path.isdir(target_dir) and del_output:
+    if os.path.isdir(target_dir) and del_output_dir:
         shutil.rmtree(target_dir, ignore_errors = True)
 
     os.makedirs(target_dir, exist_ok = True)
@@ -72,12 +72,25 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], del_output = True):
             if not os.path.exists(file_t):
                 print('mkdir %s' % os.path.abspath(file_t))
                 os.makedirs(file_t, exist_ok = True)
-            sync_dirs(file_s, file_t, exclude_list, del_output = False)
+            sync_dirs(file_s, file_t, exclude_list, del_output_dir = False)
         else:
-            with open(file_s,'rb') as f_s:
-                with open(file_t,'wb') as f_t:
-                    print('copy %s to %s' % (file_s, file_t))
-                    f_t.write(f_s.read())
+            if overwrite_file:
+                copy = True
+            elif not os.path.exists(file_t):
+                copy = True
+            elif os.path.isfile(file_t):
+                if os.path.getsize(file_t) != os.path.getsize(file_s):
+                    copy = True
+                else:
+                    copy = False
+            else:
+                copy = False
+
+            if copy:
+                with open(file_s, 'rb') as f_s:
+                    with open(file_t,'wb') as f_t:
+                        print('copy %s to %s' % (file_s, file_t))
+                        f_t.write(f_s.read())
 
 def confuse(c_source_file):
     '''
@@ -222,6 +235,7 @@ Usage: python compile_py.py [options] ...
 Options:
   -h, --help          Show the help info
   -x, --execute       Compile to executable file
+  -s, --sync          sync only
   -c, --commandfile   Set the command template file, must be offered
   -f, --file          single file, -f supervised -d when offered at same time
   -d, --directory     Directory of your project (if use -d, you change the whole directory)
@@ -248,6 +262,7 @@ example:
     source_dir  = ''
     output_dir  = ''
     commandfile = ''
+    sync_only   = False
     ############ list #######################
     delete_list  = []
     exclude_list = []
@@ -260,8 +275,8 @@ example:
     try:
         options, args = getopt.getopt(
             sys.argv[1:],
-            "hxc:f:d:o:m:M:e:k:D:x",
-            ["help", "execute", "commandfile=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
+            "hxsc:f:d:o:m:M:e:k:D:x",
+            ["help", "execute", "sync", "commandfile=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
         )
     except getopt.getopterror as e:
         print('get options error', e)
@@ -274,6 +289,8 @@ example:
             sys.exit(0)
         elif key in ['-x', '--execute']:
             to_library = False
+        elif key in ['-s', '--sync']:
+            sync_only = True
         elif key in ['-c', '--compilefile']:
             commandfile = value
         elif key in ['-f', '--file']:
@@ -314,8 +331,10 @@ example:
         print("Source dir equals output dir!")
         sys.exit(1)
 
+    if sync_only:
+        pass
     ###### commandfile
-    if os.path.isfile(commandfile):
+    elif os.path.isfile(commandfile):
         with open(commandfile) as fp:
             lines = fp.readlines()
         for line in lines:
@@ -328,10 +347,11 @@ example:
     else:
         raise Exception("Please check the commandfile exists")
 
-    if library_template == '' and to_library:
-        raise Exception("Please check the commandfile if library_template there")
-    elif execute_template == '' and not to_library:
-        raise Exception("Please check the commandfile if execute_template there")
+    if not sync_only:
+        if library_template == '' and to_library:
+            raise Exception("Please check the commandfile if library_template there")
+        elif execute_template == '' and not to_library:
+            raise Exception("Please check the commandfile if execute_template there")
 
     ###### 最终要compile
     if os.path.isfile(source_file):
@@ -339,14 +359,16 @@ example:
             os.makedirs(output_dir)
         shutil.copy(source_file, output_dir)
         path_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
-        if to_library:
-            file_to_library(path_noext, library_template, keep)
-        else:
-            file_to_execute(path_noext, execute_template, keep)
+        if not sync_only:
+            if to_library:
+                file_to_library(path_noext, library_template, keep)
+            else:
+                file_to_execute(path_noext, execute_template, keep)
     elif os.path.isdir(source_dir):
-        if library_template == '':
+        if library_template == '' and not sync_only:
             raise Exception('dir_to_librarys need library_template')
-        sync_dirs(source_dir, output_dir, exclude_list)
-        dir_to_librarys(output_dir, library_template, keep, mdir_list, mfile_list)
+        sync_dirs(source_dir, output_dir, exclude_list, del_output_dir = not sync_only)
+        if not sync_only:
+            dir_to_librarys(output_dir, library_template, keep, mdir_list, mfile_list)
     else:
-        print('neither source file nor soure dir offered, please check!!!')
+        print('neither source file nor source dir offered, please check!!!')
