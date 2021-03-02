@@ -64,4 +64,7 @@ cd ~
 wget http://10.10.52.61:8000/ollvm.tar.gz
 tar xvzf ollvm
 ```
-然后你在模板里写入这个clang
+在模板里写入这个clang
+```
+library_template = /path/to/clang {path_noext}.c -fPIC -shared -I /path/to/python/include `python3-config --ldflags` -o {path_noext}.so -mllvm -fla
+```
