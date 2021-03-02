@@ -29,9 +29,9 @@ Options:
   -x, --execute       指定编译为可执行文件的文件， 用逗号隔开 
   -m, --maintain      指定不被编译的文件，用逗号隔开
                       example: -m __init__.py,setup.py
-  -M, --maintaindir   不被编译的文件上，其下所有文件夹都不会被编译 
+  -M, --maintaindir   不被编译的文件夹，其下所有文件都不会被编译 
   -e, --exclude       不被同步的文件夹， __pycache__, .vscode, .git, .idea, .svn 等肯定不被同步 
-  -k, --keep          keep == 3 对c文件进一步混淆，保持临时文件（o文件等） 
+  -k, --keep          keep == 3 对c文件进一步混淆，保持临时文件（o文件等，进行调试时用的到） 
                       keep == 2 不对c文件进一步混淆, 保持临时文件 
                       keep == 1 对c文件进一步混淆, 不保持临时文件 
                       keep == 0 不对c文件进一步混淆, 不保持临时文件

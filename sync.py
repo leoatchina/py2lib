@@ -18,4 +18,3 @@ cmd = (
 )
 print(cmd)
 os.system(cmd)
-

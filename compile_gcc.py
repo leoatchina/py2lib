@@ -12,7 +12,7 @@ os.environ['PATH'] = r"d:\mingw\bin" + ';' + os.environ['PATH']
 
 cmd = (
     r"d:\Anaconda3\python py2lib.py "
-    r"-d .\check "
+    r"-d .\test "
     r"-o D:\test "
     r"-c config_gcc.ini "
     r"-m aaa.py "
@@ -23,7 +23,7 @@ os.system(cmd)
 
 cmd = (
     r"d:\Anaconda3\python py2lib.py "
-    r"-f .\check\aaa.py "
+    r"-f .\test\aaa.py "
     r"-x "
     r"-o D:\test "
     r"-c config_gcc.ini "

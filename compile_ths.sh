@@ -5,6 +5,7 @@ else
     KEEP=1
 fi
 
+
 rm -rf ~/Gastroscope/Server
 python py2so.py -l ~/anaconda3/include/python3.6m -d ~/Downloads/Gastroscope/Server -o ~/Gastroscope/Server -m ManageServer.py,__init__.py -D ui,proto,spect -k $KEEP 
 
