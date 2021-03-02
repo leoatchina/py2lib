@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# File              : compile_py.py
+# File              : py2lib.py
 # Author            : taotao
 # Date              : 2021.01.07
 # Last Modified Date: 2021.01.14
@@ -11,8 +11,6 @@ import os
 import sys
 import getopt
 import shutil
-# import random
-# import string
 
 
 def WINDOWS():
@@ -226,11 +224,11 @@ def dir_to_librarys(output_dir, library_template, keep = 0, mdir_list = [], mfil
 
 if __name__ == '__main__':
     help_show = '''
-compile_py is tool to change the .py to .so or .pyd, you can use it to hide the source code of py
+py2lib is tool to change the .py to .so or .pyd, you can use it to hide the source code of py
 It can be called by the main func as "from module import * "
-compile_py needs the environment of python2
+py2lib needs the environment of python3 with cython installed
 
-Usage: python compile_py.py [options] ...
+Usage: python py2lib.py [options] ...
 
 Options:
   -h, --help          Show the help info
@@ -252,7 +250,7 @@ Options:
   -D, --delete        files, dirs foreced to delete in the output_dir
 
 example:
-  python compile_py.py -d test_dir -o target_dir -m __init__.py,setup.py -c config.ini
+  python py2lib.py -d test_dir -o target_dir -m __init__.py,setup.py -c config.ini
     '''
 
     ############ basic ########################
