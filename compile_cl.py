@@ -8,7 +8,7 @@
 
 import os
 
-os.environ['PATH'] = r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.16.27023\bin\HostX64\x64" + ';' + os.environ['PATH']
+os.environ['PATH'] = r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.28.29910\bin\HostX64\x64" + ';' + os.environ['PATH']
 os.system(
     r"python py2lib.py "
     r"-d C:\Work\Projects\py2lib "

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python36
 # -*- coding: utf-8 -*-
 # File              : compile_gcc.py
 # Author            : taotao <taotao@myhexin.com>
@@ -8,10 +8,10 @@
 
 import os
 
-os.environ['PATH'] = r"d:\mingw\bin" + ';' + os.environ['PATH']
+os.environ['PATH'] = r"d:\msys2\mingw64\bin" + ';' + os.environ['PATH']
 
 cmd = (
-    r"d:\Anaconda3\python py2lib.py "
+    r"d:\python36\python py2lib.py "
     r"-d .\test "
     r"-o D:\test "
     r"-c config_gcc.ini "
@@ -21,14 +21,13 @@ cmd = (
 print(cmd)
 os.system(cmd)
 
-cmd = (
-    r"d:\Anaconda3\python py2lib.py "
-    r"-f .\test\aaa.py "
-    r"-x "
-    r"-o D:\test "
-    r"-c config_gcc.ini "
-    r"-e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp "
-    r"-k 2"
-)
-print(cmd)
-os.system(cmd)
+# cmd = (
+#     r"d:\python36\python py2lib.py "
+#     r"-f .\test\aaa.py "
+#     r"-x "
+#     r"-o D:\test "
+#     r"-c config_gcc.ini "
+#     r"-e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp "
+# )
+# print(cmd)
+# os.system(cmd)

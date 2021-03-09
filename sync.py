@@ -11,9 +11,9 @@ import os
 os.environ['PATH'] = r"d:\mingw\bin" + ';' + os.environ['PATH']
 
 cmd = (
-    r"d:\Anaconda3\python py2lib.py "
+    r"d:\python36\python py2lib.py "
     r"-s "
-    r"-d .\check "
+    r"-d .\test "
     r"-o d:\test "
 )
 print(cmd)
