@@ -40,7 +40,7 @@ def check_in_exclude_list(filename, exclude_list):
 
     return False
 
-def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, del_output_dir = True):
+def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, del_output_dir = True, sync_pyd = False):
     '''
     同步source_dir 和 targe_dir, 并排除exclude_list
     exclude_list 由basename, 以及相应的后缀组成
@@ -85,15 +85,17 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False,
                 copy = False
 
             if copy:
+                if sync_pyd and not file_s.endswith(r'pyd'):
+                    continue
                 with open(file_s, 'rb') as f_s:
-                    with open(file_t,'wb') as f_t:
+                    with open(file_t, 'wb') as f_t:
                         print('copy %s to %s' % (file_s, file_t))
                         f_t.write(f_s.read())
 
 def confuse(c_source_file):
     '''
     对cython转换出来的c文件进行进一步的正则替换
-    为了不被强行调用时，爆出execption的详细情况
+    目的是为了不被强行调用时，爆出execption的详细情况
     '''
     with open(c_source_file, 'r') as fp:
         lines = fp.readlines()
@@ -181,6 +183,7 @@ def compile_file(path_noext, template, compile_to_library = True, keep = 0):
                 else:
                     print('Completed %s.py to execute, and delete all temp files' % path_noext)
                 temp_file_ext.append('.py')
+
             files_to_remove = [path_noext + ext for ext in temp_file_ext]
             for each_file in files_to_remove:
                 try:
@@ -243,6 +246,7 @@ Options:
   -h, --help          Show the help info
   -x, --execute       Compile to executable file
   -s, --sync          sync only
+  -S, --syncpyd       sync pyd only
   -c, --commandfile   Set the command template file, must be offered
   -f, --file          single file, -f supervised -d when offered at same time
   -d, --directory     Directory of your project (if use -d, you change the whole directory)
@@ -272,6 +276,7 @@ example:
     commandfile = ''
     output_dir  = './output'
     sync_only   = False
+    sync_pyd    = False
     ############ list #######################
     delete_list  = []
     exclude_list = []
@@ -298,6 +303,9 @@ example:
             sys.exit(0)
         elif key in ['-x', '--execute']:
             to_library = False
+        elif key in ['-S', '--syncpyd']:
+            sync_only = True
+            sync_pyd  = True
         elif key in ['-s', '--sync']:
             sync_only = True
         elif key in ['-c', '--compilefile']:
@@ -342,7 +350,7 @@ example:
 
     if sync_only:
         pass
-    ###### commandfile
+    # check commandfile
     elif os.path.isfile(commandfile):
         with open(commandfile) as fp:
             lines = fp.readlines()
@@ -353,6 +361,7 @@ example:
                     library_template = line.split(r'=')[1].strip()
                 elif line.startswith("execute_template"):
                     execute_template = line.split(r'=')[1].strip()
+    # give the message
     else:
         raise Exception("Please check the commandfile exists")
 
@@ -366,9 +375,15 @@ example:
     if os.path.isfile(source_file):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        shutil.copy(source_file, output_dir)
-        path_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
-        if not sync_only:
+        if sync_only:
+            if sync_pyd:
+                if source_file.endswith(r'.pyd'):
+                    shutil.copy(source_file, output_dir)
+            else:
+                shutil.copy(source_file, output_dir)
+        else:
+            shutil.copy(source_file, output_dir)
+            path_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
             if to_library:
                 file_to_library(path_noext, library_template, keep)
             else:
@@ -376,7 +391,7 @@ example:
     elif os.path.isdir(source_dir):
         if library_template == '' and not sync_only:
             raise Exception('dir_to_librarys need library_template')
-        sync_dirs(source_dir, output_dir, exclude_list, del_output_dir = not sync_only)
+        sync_dirs(source_dir, output_dir, exclude_list, del_output_dir = not sync_only, sync_pyd = sync_pyd)
         if not sync_only:
             dir_to_librarys(output_dir, library_template, keep, mdir_list, mfile_list)
     else:
