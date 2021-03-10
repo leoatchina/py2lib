@@ -24,10 +24,10 @@ def run_cmd(cmd):
         return 1
     return ret
 
-def inexclude_list(filename, exclude_list):
+def check_in_exclude_list(filename, exclude_list):
     if os.sep in filename:
         base_name = os.path.basename(filename)
-        if inexclude_list(base_name, exclude_list):
+        if check_in_exclude_list(base_name, exclude_list):
             return True
 
     if filename in exclude_list:
@@ -61,7 +61,7 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False,
     os.makedirs(target_dir, exist_ok = True)
 
     for filename in os.listdir(source_dir):
-        if inexclude_list(filename, exclude_list):
+        if check_in_exclude_list(filename, exclude_list):
             continue
 
         file_s = source_dir + os.sep + filename
@@ -124,14 +124,14 @@ def confuse(c_source_file):
                 fp.write(line)
 
 
-def compile_file(path_noext, template, to_library = True, keep = 0):
+def compile_file(path_noext, template, compile_to_library = True, keep = 0):
     '''
     path_noext is the path of the py file without .py surfix
     it with compile to c_file and compile to .so  or .dll file
     '''
     try:
         # cython to c file
-        if to_library:
+        if compile_to_library:
             cmd = 'cython -3 {path_noext}.py -D'.format(path_noext = path_noext)
         # exe file need --embed
         else:
@@ -140,7 +140,8 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
 
         if ret > 0:
             raise Exception('python file to c file with cython failed')
-        # 再加密
+
+        # 再混淆加密，但是现在暂时用不到
         if (keep % 2) == 1:
             confuse(path_noext + '.c')
 
@@ -149,35 +150,43 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
         ret = run_cmd(cmd)
 
         if ret > 0:
-            if to_library:
+            if compile_to_library:
                 raise Exception('Compile c file to dynamic link file failed')
             else:
                 raise Exception('Compile c file to executable failed')
 
         # 对文件作一些修改
-        if WINDOWS() and os.path.exists(path_noext + ".dll") and to_library:
+        if WINDOWS() and os.path.exists(path_noext + ".dll") and compile_to_library:
             os.system("move {path_noext}.dll {path_noext}.pyd".format(path_noext = path_noext))
         # linux 755
-        elif not WINDOWS() and not to_library and os.path.exists(path_noext):
+        elif not WINDOWS() and not compile_to_library and os.path.exists(path_noext):
             os.system('chmod 755 ' + path_noext)
 
         ############ delete temprary files
-        if keep > 1:
-            if to_library:
-                print('Completed %s.py to dynamic, and keep the temp files' % path_noext)
+        temp_file_ext = ['.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']
+        if keep > 3:
+            if compile_to_library:
+                print('Completed %s.py to library, and keep all temp files and py file' % path_noext)
             else:
-                print('Completed %s.py to execute, and keep the temp files' % path_noext)
+                print('Completed %s.py to execute, and keep all temp files and py file' % path_noext)
         else:
-            files_to_remove = [path_noext + ext for ext in ['.py', '.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']]
+            if keep > 1:
+                if compile_to_library:
+                    print('Completed %s.py to library, and keep the py file only' % path_noext)
+                else:
+                    print('Completed %s.py to execute, and keep the py file only' % path_noext)
+            else:
+                if compile_to_library:
+                    print('Completed %s.py to library, and delete all temp files' % path_noext)
+                else:
+                    print('Completed %s.py to execute, and delete all temp files' % path_noext)
+                temp_file_ext.append('.py')
+            files_to_remove = [path_noext + ext for ext in temp_file_ext]
             for each_file in files_to_remove:
                 try:
                     os.remove(each_file)
                 except Exception:
                     pass
-            if to_library:
-                print('Completed %s.py to dynamic, and has deleted the temp files' % path_noext)
-            else:
-                print('Completed %s.py to execute, and has deleted the temp files' % path_noext)
 
     except Exception as e:
         print('========================')
@@ -190,10 +199,10 @@ def compile_file(path_noext, template, to_library = True, keep = 0):
 
 
 def file_to_library(path_noext, template, keep = 0):
-    compile_file(path_noext, template, to_library = True, keep = keep)
+    compile_file(path_noext, template, compile_to_library = True, keep = keep)
 
 def file_to_execute(path_noext, template, keep = 0):
-    compile_file(path_noext, template, to_library = False, keep = keep)
+    compile_file(path_noext, template, compile_to_library = False, keep = keep)
 
 
 # TODO, add delete_list to delete the unnecessary files or dirs during compile stage.
@@ -243,8 +252,10 @@ Options:
   -M, --maintaindir   like maintain, but dirs
   -e, --exclude       Directories or files that you do not want to sync to output dir.
                       __pycache__, .vscode, .git, .idea, .svn will always not be synced
-  -k, --keep          keep == 3 confuse c file, keep temp files
-                      keep == 2 not confuse c file, keep temp files
+  -k, --keep          keep == 5 confuse c file, keep temp files and py file
+                      keep == 4 not confuse c file, keep temp files and py file
+                      keep == 3 confuse c file, keep py file only
+                      keep == 2 not confuse c file, keep py file only
                       keep == 1 confuse c file, not keep temp files
                       keep == 0 not confuse c file, not keep temp files
   -D, --delete        files, dirs foreced to delete in the output_dir
