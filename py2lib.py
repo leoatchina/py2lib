@@ -326,7 +326,7 @@ example:
                 if d.endswith(r"/"):
                     d = d[:-1]
                 mdir_list.append(d)
-    exclude_list = list(set(['.gitignore', '.git', '.svn', '.root', '.vscode', '.idea', '__pycache__', '.task'] + exclude_list))
+    exclude_list = list(set(['.gitignore', '.git', '.svn', '.root', '.vscode', '.idea', '__pycache__', '.task', '.vim', '.gitlab-ci.yml'] + exclude_list))
 
     ############# source_dir
     if len(source_dir) > 0 and source_dir[-1] == r'/':
