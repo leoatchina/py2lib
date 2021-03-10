@@ -269,8 +269,8 @@ example:
     to_library  = True
     source_file = ''
     source_dir  = ''
-    output_dir  = ''
     commandfile = ''
+    output_dir  = './output'
     sync_only   = False
     ############ list #######################
     delete_list  = []
