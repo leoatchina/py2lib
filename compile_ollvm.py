@@ -7,18 +7,33 @@
 # Last Modified By  : taotao <taotao@myhexin.com>
 
 import os
+import time
 
 os.environ['PATH'] = r"D:\python36_GScopeGUI\scripts;d:\obfuscator-6.0-mingw-win32\bin" + ';' + os.environ['PATH']
 
+os.system(r'D:\python36_GScopeGUI\scripts\pyinstaller -y --key ths@123 --distpath d:\build\compile --icon .\test\126.ico .\test\aaa.py')
+
 cmd = (
     r"d:\python36_GScopeGUI\python py2lib.py "
+    # r"-k 4 "
     r"-d .\test "
-    r"-o D:\test "
+    r"-o d:\test "
     r"-c config_ollvm.ini "
     r"-m aaa.py "
-    r"-e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp "
+    r"-e .ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp "
 )
 print(cmd)
 os.system(cmd)
 
-os.system(r'D:\python36_GScopeGUI\scripts\pyinstaller --key ths@123 --distpath d:\test\compile --icon d:\test\126.ico d:\test\aaa.py -y')
+
+time.sleep(5)
+
+cmd = (
+    r"d:\python36_GScopeGUI\python py2lib.py "
+    r"-S "
+    r"-d d:\test "
+    r"-o D:\build\compile\aaa "
+    r"-e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp "
+)
+print(cmd)
+# os.system(cmd)
