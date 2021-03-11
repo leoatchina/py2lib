@@ -270,14 +270,14 @@ example:
     '''
 
     ############ basic ########################
-    keep        = 0
-    to_library  = True
-    source_file = ''
-    source_dir  = ''
-    commandcfg  = ''
-    output_dir  = './output'
-    sync_only   = False
-    sync_pyd    = False
+    keep          = 0
+    to_library    = True
+    source_file   = ''
+    source_dir    = ''
+    commandcfg    = ''
+    output_dir    = './output'
+    sync_only     = False
+    sync_pyd      = False
     rm_target_dir = True
     ############ list #######################
     delete_list  = []
@@ -291,8 +291,8 @@ example:
     try:
         options, args = getopt.getopt(
             sys.argv[1:],
-            "hxsSrc:f:d:o:m:M:e:k:D:",
-            ["help", "execute", "sync", "sync_pyd", "rm_target_dir" \
+            "hxsSKc:f:d:o:m:M:e:k:D:",
+            ["help", "execute", "sync", "sync_pyd", "keepdir" \
              "commandcfg=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
         )
     except getopt.getopterror as e:
@@ -311,6 +311,8 @@ example:
         elif key in ['-S', '--syncpyd']:
             sync_only = True
             sync_pyd  = True
+        elif key in ['-K', '--keepdir']:
+            rm_target_dir = False
         elif key in ['-c', '--commandcfg']:
             commandcfg = value
         elif key in ['-f', '--file']:
@@ -391,7 +393,7 @@ example:
                 file_to_execute(path_noext, execute_template, keep)
         elif os.path.isdir(source_dir):
             sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir = rm_target_dir)
-            # NOTE dir 只会全部编译成library
+            # NOTE 只会全部编译成library
             dir_to_librarys(output_dir, library_template, keep, mdir_list, mfile_list)
         else:
             print('neither source file nor source dir offered, please check!!!')
