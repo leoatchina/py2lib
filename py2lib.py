@@ -40,7 +40,7 @@ def check_in_exclude_list(filename, exclude_list):
 
     return False
 
-def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, del_output_dir = True, sync_pyd = False):
+def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, rm_target_dir = True, sync_pyd = False):
     '''
     同步source_dir 和 targe_dir, 并排除exclude_list
     exclude_list 由basename, 以及相应的后缀组成
@@ -55,7 +55,7 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False,
     except Exception:
         pass
 
-    if os.path.isdir(target_dir) and del_output_dir:
+    if os.path.isdir(target_dir) and rm_target_dir:
         shutil.rmtree(target_dir, ignore_errors = True)
 
     os.makedirs(target_dir, exist_ok = True)
@@ -64,33 +64,28 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False,
         if check_in_exclude_list(filename, exclude_list):
             continue
 
-        file_s = source_dir + os.sep + filename
-        file_t = target_dir + os.sep + filename
-        if os.path.isdir(file_s):
-            if not os.path.exists(file_t):
-                print('mkdir %s' % os.path.abspath(file_t))
-                os.makedirs(file_t, exist_ok = True)
-            sync_dirs(file_s, file_t, exclude_list, del_output_dir = False)
+        source = source_dir + os.sep + filename
+        target = target_dir + os.sep + filename
+        if os.path.isdir(source):
+            if not os.path.exists(target):
+                print('mkdir %s' % os.path.abspath(target))
+                os.makedirs(target, exist_ok = True)
+            sync_dirs(source, target, exclude_list, rm_target_dir = False)
         else:
-            if overwrite_file:
-                copy = True
-            elif not os.path.exists(file_t):
-                copy = True
-            elif os.path.isfile(file_t):
-                if os.path.getsize(file_t) != os.path.getsize(file_s):
-                    copy = True
-                else:
-                    copy = False
-            else:
-                copy = False
+            if sync_pyd and not source.endswith(r'pyd'):
+                continue
 
-            if copy:
-                if sync_pyd and not file_s.endswith(r'pyd'):
+            if overwrite_file:
+                pass
+            elif not os.path.exists(target):
+                pass
+            elif os.path.isfile(target):
+                if os.path.getsize(target) == os.path.getsize(source):
                     continue
-                with open(file_s, 'rb') as f_s:
-                    with open(file_t, 'wb') as f_t:
-                        print('copy %s to %s' % (file_s, file_t))
-                        f_t.write(f_s.read())
+            else:
+                continue
+
+            shutil.copy(source, target_dir)
 
 def confuse(c_source_file):
     '''
@@ -249,26 +244,26 @@ py2lib needs the environment of python3 with cython installed
 Usage: python py2lib.py [options] ...
 
 Options:
-  -h, --help          Show the help info
-  -x, --execute       Compile to executable file
-  -s, --sync          sync only
-  -S, --syncpyd       sync pyd only
-  -c, --commandfile   Set the command template file, must be offered
-  -f, --file          single file, -f supervised -d when offered at same time
-  -d, --directory     Directory of your project (if use -d, you change the whole directory)
-  -o, --output        Directory to store the compile results, must be different to source_dir
-  -m, --maintain      list the file you don't want to compile from py to library file
-                      example: -m __init__.py,setup.py
-  -M, --maintaindir   like maintain, but dirs
-  -e, --exclude       Directories or files that you do not want to sync to output dir.
-                      __pycache__, .vscode, .git, .idea, .svn will always not be synced
-  -k, --keep          keep == 5 confuse c file, keep temp files and py file
-                      keep == 4 not confuse c file, keep temp files and py file
-                      keep == 3 confuse c file, keep py file only
-                      keep == 2 not confuse c file, keep py file only
-                      keep == 1 confuse c file, not keep temp files
-                      keep == 0 not confuse c file, not keep temp files
-  -D, --delete        files, dirs foreced to delete in the output_dir
+  -h, --help         Show the help info
+  -x, --execute      Compile to executable file
+  -s, --sync         sync only
+  -S, --syncpyd      sync pyd only
+  -c, --commandcfg   Set the command template config file, must be offered if not sync_only
+  -f, --file         single file, -f supervised -d when offered at same time
+  -d, --directory    Directory of your project (if use -d, you change the whole directory)
+  -o, --output       Directory to store the compile results, must be different to source_dir
+  -m, --maintain     The files you don't want to compile from py to library file
+                     example: -m __init__.py,setup.py
+  -M, --maintaindir  like maintain, but dirs
+  -e, --exclude      Directories or files that you do not want to sync to output dir.
+                     __pycache__, .vscode, .git, .idea, .svn will always not be synced
+  -k, --keep         keep == 5 confuse c file, keep temp files and py file
+                     keep == 4 not confuse c file, keep temp files and py file
+                     keep == 3 confuse c file, keep py file only
+                     keep == 2 not confuse c file, keep py file only
+                     keep == 1 confuse c file, not keep temp files
+                     keep == 0 not confuse c file, not keep temp files
+  -D, --delete       files, dirs foreced to delete in the output_dir
 
 example:
   python py2lib.py -d test_dir -o target_dir -m __init__.py,setup.py -c config.ini
@@ -279,10 +274,11 @@ example:
     to_library  = True
     source_file = ''
     source_dir  = ''
-    commandfile = ''
+    commandcfg  = ''
     output_dir  = './output'
     sync_only   = False
     sync_pyd    = False
+    rm_target_dir = True
     ############ list #######################
     delete_list  = []
     exclude_list = []
@@ -295,8 +291,9 @@ example:
     try:
         options, args = getopt.getopt(
             sys.argv[1:],
-            "hxsSc:f:d:o:m:M:e:k:D:",
-            ["help", "execute", "sync", "sync_pyd", "commandfile=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
+            "hxsSrc:f:d:o:m:M:e:k:D:",
+            ["help", "execute", "sync", "sync_pyd", "rm_target_dir" \
+             "commandcfg=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
         )
     except getopt.getopterror as e:
         print('get options error', e)
@@ -314,8 +311,8 @@ example:
         elif key in ['-S', '--syncpyd']:
             sync_only = True
             sync_pyd  = True
-        elif key in ['-c', '--compilefile']:
-            commandfile = value
+        elif key in ['-c', '--commandcfg']:
+            commandcfg = value
         elif key in ['-f', '--file']:
             source_file = value
         elif key in ['-o', '--output']:
@@ -353,52 +350,51 @@ example:
     if os.path.abspath(source_dir) == os.path.abspath(output_dir):
         print("Source dir equals output dir!")
         sys.exit(1)
-
     if sync_only:
-        pass
-    # check commandfile
-    elif os.path.isfile(commandfile):
-        with open(commandfile) as fp:
-            lines = fp.readlines()
-        for line in lines:
-            line = line.strip()
-            if line != '':
-                if line.startswith("library_template"):
-                    library_template = line.split(r'=')[1].strip()
-                elif line.startswith("execute_template"):
-                    execute_template = line.split(r'=')[1].strip()
-    # give the message
-    else:
-        raise Exception("Please check the commandfile exists")
-
-    if not sync_only:
-        if library_template == '' and to_library:
-            raise Exception("Please check the commandfile if library_template there")
-        elif execute_template == '' and not to_library:
-            raise Exception("Please check the commandfile if execute_template there")
-
-    ###### 最终要compile
-    if os.path.isfile(source_file):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        if sync_only:
-            if sync_pyd:
-                if source_file.endswith(r'.pyd'):
-                    shutil.copy(source_file, output_dir)
-            else:
+        if os.path.isfile(source_file):
+            if not sync_pyd or sync_pyd and source_file.endswith(r'.pyd'):
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
                 shutil.copy(source_file, output_dir)
-        else:
+        elif os.path.isdir(source_dir):
+            if sync_pyd:
+                sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir = False, sync_pyd = True)
+            else:
+                sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir = rm_target_dir)
+    elif os.path.isfile(commandcfg):
+        # check the template
+        with open(commandcfg) as fp:
+            lines = fp.readlines()
+            for line in lines:
+                line = line.strip()
+                if line != '':
+                    if line.startswith("library_template"):
+                        library_template = line.split(r'=')[1].strip()
+                    elif line.startswith("execute_template"):
+                        execute_template = line.split(r'=')[1].strip()
+
+        if library_template == '' and to_library:
+            raise Exception("Please check the commandcfg if library_template there")
+        elif execute_template == '' and not to_library:
+            raise Exception("Please check the commandcfg if execute_template there")
+
+        ############# XXX do compile
+        if os.path.isfile(source_file):
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
             shutil.copy(source_file, output_dir)
             path_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
+            # NOTE file可能会编译成library或者executable
             if to_library:
                 file_to_library(path_noext, library_template, keep)
             else:
                 file_to_execute(path_noext, execute_template, keep)
-    elif os.path.isdir(source_dir):
-        if library_template == '' and not sync_only:
-            raise Exception('dir_to_librarys need library_template')
-        sync_dirs(source_dir, output_dir, exclude_list, del_output_dir = not sync_only, sync_pyd = sync_pyd)
-        if not sync_only:
+        elif os.path.isdir(source_dir):
+            sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir = rm_target_dir)
+            # NOTE dir 只会全部编译成library
             dir_to_librarys(output_dir, library_template, keep, mdir_list, mfile_list)
+        else:
+            print('neither source file nor source dir offered, please check!!!')
+    # if not command file offered, raise the exception
     else:
-        print('neither source file nor source dir offered, please check!!!')
+        raise Exception("Please check the commandcfg exists")

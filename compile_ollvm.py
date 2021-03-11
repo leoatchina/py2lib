@@ -26,7 +26,7 @@ print(cmd)
 os.system(cmd)
 
 
-time.sleep(5)
+# time.sleep(5)
 
 cmd = (
     r"d:\python36_GScopeGUI\python py2lib.py "
@@ -36,4 +36,4 @@ cmd = (
     r"-e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp "
 )
 print(cmd)
-# os.system(cmd)
+os.system(cmd)
