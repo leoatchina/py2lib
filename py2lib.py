@@ -3,7 +3,7 @@
 # File              : py2lib.py
 # Author            : taotao
 # Date              : 2021.01.07
-# Last Modified Date: 2021.01.14
+# Last Modified Date: 2021.03.11
 # Last Modified By  : taotao <taotao@myhexin.com>
 
 import re
@@ -11,7 +11,9 @@ import os
 import sys
 import getopt
 import shutil
+from datetime import datetime
 
+seed = '0x' + datetime.today().strftime('%Y%m%d')
 
 def WINDOWS():
     return sys.platform.startswith('win')
@@ -121,7 +123,7 @@ def confuse(c_source_file):
                 fp.write(line)
 
 
-def compile_file(path_noext, template, compile_to_library = True, keep = 0):
+def compile_file(path_noext, template, compile_to_library = True, keep = 0, print_cmd = False):
     '''
     path_noext is the path of the py file without .py surfix
     it with compile to c_file and compile to .so  or .dll file
@@ -130,23 +132,22 @@ def compile_file(path_noext, template, compile_to_library = True, keep = 0):
         # cython to c file
         if compile_to_library:
             cmd = 'cython -3 {path_noext}.py -D'.format(path_noext = path_noext)
-        # exe file need --embed
         else:
             cmd = 'cython -3 {path_noext}.py --embed -D'.format(path_noext = path_noext)
-        if keep > 3:
-            print(cmd)
+
         ret = run_cmd(cmd)
 
         if ret > 0:
             raise Exception('python file to c file with cython failed')
 
-        # 再混淆加密，但是现在暂时用不到
+        # 再混淆加密，XXX 但是现在暂时用不到
         if (keep % 2) == 1:
             confuse(path_noext + '.c')
 
         # 把c 编译成so或者dll或者可执行
-        cmd = template.format(path_noext = path_noext)
-        if keep > 3:
+        # NOTE seed is a global value
+        cmd = template.format(path_noext = path_noext, seed = seed)
+        if keep > 3 and print_cmd:
             print(cmd)
         ret = run_cmd(cmd)
 
@@ -371,14 +372,14 @@ example:
                 line = line.strip()
                 if line != '':
                     if line.startswith("library_template"):
-                        library_template = line.split(r'=')[1].strip()
+                        library_template = r"=".join(line.split(r'=')[1:]).strip()
                     elif line.startswith("execute_template"):
-                        execute_template = line.split(r'=')[1].strip()
+                        execute_template = r"=".join(line.split(r'=')[1:]).strip()
 
         if library_template == '' and to_library:
-            raise Exception("Please check the commandcfg if library_template there")
+            raise Exception("Please check the commandcfg if library_template exists")
         elif execute_template == '' and not to_library:
-            raise Exception("Please check the commandcfg if execute_template there")
+            raise Exception("Please check the commandcfg if execute_template exists")
 
         ############# XXX do compile
         if os.path.isfile(source_file):
