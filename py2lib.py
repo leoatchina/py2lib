@@ -296,7 +296,7 @@ example:
             ["help", "execute", "sync", "sync_pyd", "keepdir" \
              "commandcfg=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
         )
-    except getopt.getopterror as e:
+    except Exception as e:
         print('get options error', e)
         print(help_show)
         sys.exit(1)
