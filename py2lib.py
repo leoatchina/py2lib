@@ -162,10 +162,11 @@ def compile_file(path_noext, template, compile_to_library = True, keep = 0):
                 raise Exception('Compile c file to executable failed')
 
         # 在windows下，把.dll文件转.pyd
+        # 有些情况下，用ollvm转dll会不成功，命令是对的，重启能解决问题。
         if WINDOWS() and os.path.exists(path_noext + ".dll") and compile_to_library:
             # print(path_noext + ".dll")
             os.system("move {path_noext}.dll {path_noext}.pyd".format(path_noext = path_noext))
-        # linux，change tarcget to  755
+        # linux，change tarcget to 755
         elif not WINDOWS() and not compile_to_library and os.path.exists(path_noext):
             os.system('chmod 755 ' + path_noext)
 
@@ -195,7 +196,6 @@ def compile_file(path_noext, template, compile_to_library = True, keep = 0):
                     os.remove(each_file)
                 except Exception:
                     pass
-
 
     except Exception as e:
         print('========================')

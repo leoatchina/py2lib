@@ -156,3 +156,4 @@ __pycache__
 /build
 /dist
 /target
+*.spec
