@@ -15,7 +15,7 @@ os.system(r'D:\python36_GScopeGUI\scripts\pyinstaller -y --key ths@123 --distpat
 
 cmd = (
     r"d:\python36_GScopeGUI\python py2lib.py "
-    r"-k 4 "
+    r"-l 4 "
     r"-d .\test "
     r"-o d:\test "
     r"-c config_ollvm.ini "

@@ -123,7 +123,7 @@ def confuse(c_source_file):
                 fp.write(line)
 
 
-def compile_file(path_noext, template, compile_to_library = True, keep = 0, print_cmd = False):
+def compile_file(path_noext, template, compile_to_library = True, level = 0, print_cmd = False):
     '''
     path_noext is the path of the py file without .py surfix
     it with compile to c_file and compile to .so  or .dll file
@@ -141,13 +141,13 @@ def compile_file(path_noext, template, compile_to_library = True, keep = 0, prin
             raise Exception('python file to c file with cython failed')
 
         # 再混淆加密，XXX 但是现在暂时用不到
-        if (keep % 2) == 1:
+        if (level % 2) == 1:
             confuse(path_noext + '.c')
 
         # 把c 编译成so或者dll或者可执行
         # NOTE seed is a global value
         cmd = template.format(path_noext = path_noext, seed = seed)
-        if keep > 3 and print_cmd:
+        if level > 3 and print_cmd:
             print(cmd)
         ret = run_cmd(cmd)
 
@@ -168,17 +168,17 @@ def compile_file(path_noext, template, compile_to_library = True, keep = 0, prin
 
         ############ delete temprary files
         temp_file_ext = ['.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']
-        if keep > 3:
+        if level > 3:
             if compile_to_library:
-                print('Completed %s.py to library, and keep all temp files and py file' % path_noext)
+                print('Completed %s.py to library, and level all temp files and py file' % path_noext)
             else:
-                print('Completed %s.py to execute, and keep all temp files and py file' % path_noext)
+                print('Completed %s.py to execute, and level all temp files and py file' % path_noext)
         else:
-            if keep > 1:
+            if level > 1:
                 if compile_to_library:
-                    print('Completed %s.py to library, and keep the py file only' % path_noext)
+                    print('Completed %s.py to library, and level the py file only' % path_noext)
                 else:
-                    print('Completed %s.py to execute, and keep the py file only' % path_noext)
+                    print('Completed %s.py to execute, and level the py file only' % path_noext)
             else:
                 if compile_to_library:
                     print('Completed %s.py to library, and delete all temp files' % path_noext)
@@ -203,15 +203,15 @@ def compile_file(path_noext, template, compile_to_library = True, keep = 0, prin
         raise(e)
 
 
-def file_to_library(path_noext, template, keep = 0):
-    compile_file(path_noext, template, compile_to_library = True, keep = keep)
+def file_to_library(path_noext, template, level = 0):
+    compile_file(path_noext, template, compile_to_library = True, level = level)
 
-def file_to_execute(path_noext, template, keep = 0):
-    compile_file(path_noext, template, compile_to_library = False, keep = keep)
+def file_to_execute(path_noext, template, level = 0):
+    compile_file(path_noext, template, compile_to_library = False, level = level)
 
 
 # TODO, add delete_list to delete the unnecessary files or dirs during compile stage.
-def dir_to_librarys(output_dir, library_template, keep = 0, mdir_list = [], mfile_list = []):
+def dir_to_librarys(output_dir, library_template, level = 0, mdir_list = [], mfile_list = []):
     '''
     把原始的source，可能是file, 可能是dir， 同步到output_dir，并且根据library_template把py转成libray
     library_template: 写有转换模板里的文件里读出的转换模板语句
@@ -233,7 +233,7 @@ def dir_to_librarys(output_dir, library_template, keep = 0, mdir_list = [], mfil
             path_noext = root + os.sep + path_noext
             ######### compile
             if each_file.endswith('.py'):
-                file_to_library(path_noext, library_template, keep)
+                file_to_library(path_noext, library_template, level)
 
 
 if __name__ == '__main__':
@@ -258,12 +258,12 @@ Options:
   -M, --maintaindir  like maintain, but dirs
   -e, --exclude      Directories or files that you do not want to sync to output dir.
                      __pycache__, .vscode, .git, .idea, .svn will always not be synced
-  -k, --keep         keep == 5 confuse c file, keep temp files and py file
-                     keep == 4 not confuse c file, keep temp files and py file
-                     keep == 3 confuse c file, keep py file only
-                     keep == 2 not confuse c file, keep py file only
-                     keep == 1 confuse c file, not keep temp files
-                     keep == 0 not confuse c file, not keep temp files
+  -l, --level        level == 5 confuse c file, keep temp files and py file
+                     level == 4 not confuse c file, keep temp files and py file
+                     level == 3 confuse c file, keep py file only
+                     level == 2 not confuse c file, keep py file only
+                     level == 1 confuse c file, not keep temp files
+                     level == 0 not confuse c file, not keep temp files
   -D, --delete       files, dirs foreced to delete in the output_dir
 
 example:
@@ -271,7 +271,7 @@ example:
     '''
 
     ############ basic ########################
-    keep          = 0
+    level         = 0
     to_library    = True
     source_file   = ''
     source_dir    = ''
@@ -292,9 +292,9 @@ example:
     try:
         options, args = getopt.getopt(
             sys.argv[1:],
-            "hxsSKc:f:d:o:m:M:e:k:D:",
-            ["help", "execute", "sync", "sync_pyd", "keepdir" \
-             "commandcfg=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "keep=", "delete="]
+            "hxsSkc:f:d:o:m:M:e:l:D:",
+            ["help", "execute", "sync", "sync_pyd", "keep" \
+             "commandcfg=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "level=", "delete="]
         )
     except Exception as e:
         print('get options error', e)
@@ -312,7 +312,7 @@ example:
         elif key in ['-S', '--syncpyd']:
             sync_only = True
             sync_pyd  = True
-        elif key in ['-K', '--keepdir']:
+        elif key in ['-k', '--keep']:
             rm_target_dir = False
         elif key in ['-c', '--commandcfg']:
             commandcfg = value
@@ -324,8 +324,8 @@ example:
             source_dir = value
         elif key in ['-e', '--exclude']:
             exclude_list = value.split(",")
-        elif key in ['-k', '--keep']:
-            keep = int(value)
+        elif key in ['-k', '--level']:
+            level = int(value)
         elif key in ['-D', '--delete']:
             delete_list = value.split(",")
         # 要保留的file
@@ -340,7 +340,7 @@ example:
                 if d.endswith(r"/"):
                     d = d[:-1]
                 mdir_list.append(d)
-    exclude_list = list(set(['.gitignore', '.git', '.svn', '.root', '.vscode', '.idea', '__pycache__', '.task', '.vim', '.gitlab-ci.yml'] + exclude_list))
+    exclude_list = list(set(['.gitignore', '.git', '.svn', '.root', '.vscode', '.idea', '__pycache__', '.task', '.vim', '.gitlab-ci.yml', '.pyc'] + exclude_list))
 
     ############# source_dir
     if len(source_dir) > 0 and source_dir[-1] == r'/':
@@ -389,13 +389,13 @@ example:
             path_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
             # NOTE file可能会编译成library或者executable
             if to_library:
-                file_to_library(path_noext, library_template, keep)
+                file_to_library(path_noext, library_template, level)
             else:
-                file_to_execute(path_noext, execute_template, keep)
+                file_to_execute(path_noext, execute_template, level)
         elif os.path.isdir(source_dir):
             sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir = rm_target_dir)
             # NOTE 只会全部编译成library
-            dir_to_librarys(output_dir, library_template, keep, mdir_list, mfile_list)
+            dir_to_librarys(output_dir, library_template, level, mdir_list, mfile_list)
         else:
             print('neither source file nor source dir offered, please check!!!')
     # if not command file offered, raise the exception
