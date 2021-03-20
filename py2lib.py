@@ -146,6 +146,13 @@ def compile_file(path_noext, template, compile_to_library = True, level = 0, pri
 
         # 把c 编译成so或者dll或者可执行
         # NOTE seed is a global value
+        if level > 5:
+            if compile_to_library:
+                print('Completed %s.py to library, and keep all temp files and py file' % path_noext)
+            else:
+                print('Completed %s.py to execute, and keep all temp files and py file' % path_noext)
+
+
         cmd = template.format(path_noext = path_noext, seed = seed)
         if level > 3 and print_cmd:
             print(cmd)
@@ -168,17 +175,18 @@ def compile_file(path_noext, template, compile_to_library = True, level = 0, pri
 
         ############ delete temprary files
         temp_file_ext = ['.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']
-        if level > 3:
+
+        elif level > 3:
             if compile_to_library:
-                print('Completed %s.py to library, and level all temp files and py file' % path_noext)
+                print('Completed %s.py to library, and keep all temp files and py file' % path_noext)
             else:
-                print('Completed %s.py to execute, and level all temp files and py file' % path_noext)
+                print('Completed %s.py to execute, and keep all temp files and py file' % path_noext)
         else:
             if level > 1:
                 if compile_to_library:
-                    print('Completed %s.py to library, and level the py file only' % path_noext)
+                    print('Completed %s.py to library, and keep py file' % path_noext)
                 else:
-                    print('Completed %s.py to execute, and level the py file only' % path_noext)
+                    print('Completed %s.py to execute, and keep py file' % path_noext)
             else:
                 if compile_to_library:
                     print('Completed %s.py to library, and delete all temp files' % path_noext)
@@ -324,7 +332,7 @@ example:
             source_dir = value
         elif key in ['-e', '--exclude']:
             exclude_list = value.split(",")
-        elif key in ['-k', '--level']:
+        elif key in ['-l', '--level']:
             level = int(value)
         elif key in ['-D', '--delete']:
             delete_list = value.split(",")
