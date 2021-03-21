@@ -7,13 +7,17 @@
 # Last Modified By  : taotao <taotao@myhexin.com>
 
 import re
-import os
-import sys
+import os, sys
 import getopt
 import shutil
 from datetime import datetime
 
+
+# seed is for cypher seed
 seed = '0x' + datetime.today().strftime('%Y%m%d')
+chs_regex = "[\u4e00-\u9fa5]"
+
+imports = []
 
 def WINDOWS():
     return sys.platform.startswith('win')
@@ -22,7 +26,10 @@ def run_cmd(cmd):
     try:
         ret = os.system(cmd)
     except Exception as e:
+        print('================================')
+        print('The command ' + cmd + ' not work')
         print(e)
+        print('================================')
         return 1
     return ret
 
@@ -31,16 +38,53 @@ def check_in_exclude_list(filename, exclude_list):
         base_name = os.path.basename(filename)
         if check_in_exclude_list(base_name, exclude_list):
             return True
-
     if filename in exclude_list:
         return True
-
     _, file_ext = os.path.splitext(filename)
-
     if file_ext in exclude_list:
         return True
-
     return False
+
+
+def trim_pyfile(pyfile, wrtfile = None):
+    docstring_found = False
+    lines = []
+    global imports
+    with open(pyfile, 'r', encoding='utf8') as fp:
+        for line in fp.readlines():
+            line_strip = line.strip()
+            if docstring_found:
+                if r"'''" in line_strip:
+                    docstring_found = False
+                continue
+            if r"'''" in line_strip:
+                docstring_found = True
+                continue
+            if line_strip == '' or line_strip.startswith("#"):
+                continue
+            # 去除chinese and
+            # TODO: trim comment at end of a line
+            line = re.sub(chs_regex, '', line)
+            lines.append(line)
+            if line_strip.startswith('import '):
+                imports.extend(line_strip.replace(" ", "").replace("import", "").split(","))
+            elif line_strip.startswith("from "):
+                line_strip = re.sub(r"\s{2,}", " ", line_strip)
+                pkg_import = line_strip.split(" ")[1]
+                targets    = line_strip.split(" ")[3]
+                targets    = targets.replace(" ", '').split(",")
+                imports.extend([pkg_import + "." + target for target in targets])
+
+    if len(lines) == 0:
+        print(pyfile + ' has no workable python script!')
+        return
+
+    if wrtfile is None:
+        wrtfile = pyfile
+
+    with open(wrtfile, 'w') as fp:
+        fp.writelines(lines)
+
 
 def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, rm_target_dir = True, sync_pyd = False):
     '''
@@ -56,16 +100,12 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False,
             return
     except Exception:
         pass
-
     if os.path.isdir(target_dir) and rm_target_dir:
         shutil.rmtree(target_dir, ignore_errors = True)
-
     os.makedirs(target_dir, exist_ok = True)
-
     for filename in os.listdir(source_dir):
         if check_in_exclude_list(filename, exclude_list):
             continue
-
         source = source_dir + os.sep + filename
         target = target_dir + os.sep + filename
         if os.path.isdir(source):
@@ -76,7 +116,6 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False,
         else:
             if sync_pyd and not source.endswith(r'pyd'):
                 continue
-
             if overwrite_file:
                 pass
             elif not os.path.exists(target):
@@ -86,8 +125,8 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False,
                     continue
             else:
                 continue
-
             shutil.copy(source, target_dir)
+
 
 def confuse(c_source_file):
     '''
@@ -95,6 +134,7 @@ def confuse(c_source_file):
     目的是为了不被强行调用时，爆出execption的详细情况
     '''
     with open(c_source_file, 'r') as fp:
+
         lines = fp.readlines()
 
     with open(c_source_file, 'w') as fp:
@@ -176,7 +216,7 @@ def compile_file(path_noext, template, compile_to_library = True, level = 0, pri
         ############ delete temprary files
         temp_file_ext = ['.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']
 
-        elif level > 3:
+        if level > 3:
             if compile_to_library:
                 print('Completed %s.py to library, and keep all temp files and py file' % path_noext)
             else:
