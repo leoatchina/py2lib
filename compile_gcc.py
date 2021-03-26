@@ -11,11 +11,12 @@ import os
 os.environ['PATH'] = r"d:\msys2\mingw64\bin" + ';' + os.environ['PATH']
 
 cmd = (
-    r"d:\python36\python py2lib.py "
-    r"-d .\test "
-    r"-o D:\test "
+    r"c:\tools\anaconda3\python py2lib.py "
+    r"-p c:\tools\anaconda3\python "
+    r"-d c:\work\projects\aes_cypher "
+    r"-o c:\work\projects\aes_cypher_c "
     r"-c config_gcc.ini "
-    r"-m aaa.py "
+    r"-m aes_cypher_gui.py "
     r"-e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp "
 )
 print(cmd)

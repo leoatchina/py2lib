@@ -12,12 +12,12 @@ import getopt
 import shutil
 from datetime import datetime
 
-
 # seed is for cypher seed
 seed = '0x' + datetime.today().strftime('%Y%m%d')
 chs_regex = "[\u4e00-\u9fa5]"
 
-imports = []
+all_imports = []
+all_pyfiles = []
 
 def WINDOWS():
     return sys.platform.startswith('win')
@@ -47,10 +47,21 @@ def check_in_exclude_list(filename, exclude_list):
 
 
 def trim_pyfile(pyfile, wrtfile = None):
+    """trim a pyfile """
     docstring_found = False
-    lines = []
-    global imports
-    with open(pyfile, 'r', encoding='utf8') as fp:
+    if WINDOWS():
+        lines = ["# -*- coding: gbk -*-\n"]
+        encoding = 'gbk'
+    else:
+        lines = ["# -*- coding: utf-8 -*-\n"]
+        encoding = 'utf8'
+
+    global all_imports
+    onefile_imports = []
+
+    with open(pyfile, 'r', encoding= 'utf8') as fp:
+        one_pyfile_imports = []
+        continue_import = True
         for line in fp.readlines():
             line_strip = line.strip()
             if docstring_found:
@@ -62,20 +73,32 @@ def trim_pyfile(pyfile, wrtfile = None):
                 continue
             if line_strip == '' or line_strip.startswith("#"):
                 continue
-            # 去除chinese and
-            # TODO: trim comment at end of a line
+            # 去除chinese
             line = re.sub(chs_regex, '', line)
             lines.append(line)
-            if line_strip.startswith('import '):
-                imports.extend(line_strip.replace(" ", "").replace("import", "").split(","))
-            elif line_strip.startswith("from "):
-                line_strip = re.sub(r"\s{2,}", " ", line_strip)
-                pkg_import = line_strip.split(" ")[1]
-                targets    = line_strip.split(" ")[3]
-                targets    = targets.replace(" ", '').split(",")
-                imports.extend([pkg_import + "." + target for target in targets])
 
-    if len(lines) == 0:
+            if continue_import:
+                if line_strip.startswith('import '):
+                    line_strip = re.sub(r"\s{2,}", " ", line_strip)
+                    line_strip = line_strip.split("as")[0].strip()
+                    line_strip = line_strip.replace("import ", "").replace(" ", "")
+                    import_raw = line_strip.replace(" ", "").replace("import", "").split(",")
+                    one_pyfile_imports.extend(import_raw)
+                elif line_strip.startswith("from "):
+                    line_strip = re.sub(r"\s{2,}", " ", line_strip.replace("from ", ''))
+                    pkg_import = line_strip.split(" ")[0]
+                    targets    = line_strip.split(" ")[2]
+                    # NOTE if one python file conatins 'from xxx import *', this file will not be compile to pyd
+                    if r"*" in targets:
+                        one_pyfile_imports = []
+                        convert_to_pyd     = False
+                        continue_import    = False
+                    else:
+                        targets    = targets.replace(" ", '').split(",")
+                        import_raw = line_strip.replace(" ", "").replace("import", "").split(",")
+                        one_pyfile_imports.extend(import_raw)
+
+    if len(lines) <= 1:
         print(pyfile + ' has no workable python script!')
         return
 
@@ -85,6 +108,12 @@ def trim_pyfile(pyfile, wrtfile = None):
     with open(wrtfile, 'w') as fp:
         fp.writelines(lines)
 
+    if one_pyfile_imports:
+        for each in one_pyfile_imports:
+            if each in all_imports:
+                pass
+            else:
+                all_imports.append(each)
 
 def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, rm_target_dir = True, sync_pyd = False):
     '''
@@ -149,7 +178,7 @@ def confuse(c_source_file):
             elif found_pyx_err_define and line.strip == '':
                 # 写入一个假的行
                 found_pyx_err_define = False
-                fp.write(r" / * %s.py:0\n * /\n" % path_noext)
+                fp.write(r" / * %s.py:0\n * /\n" % pyfile_noext)
             elif line.startswith(r' * '):
                 pass
             elif re.search(re_PYX_ERR, line):
@@ -163,37 +192,32 @@ def confuse(c_source_file):
                 fp.write(line)
 
 
-def compile_file(path_noext, template, compile_to_library = True, level = 0, print_cmd = False):
+def compile_file(pyfile_noext, template, compile_to_library = True, level = 0, print_cmd = False):
     '''
-    path_noext is the path of the py file without .py surfix
+    pyfile_noext is the path of the py file without .py surfix
     it with compile to c_file and compile to .so  or .dll file
     '''
     try:
         # cython to c file
         if compile_to_library:
-            cmd = 'cython -3 {path_noext}.py -D'.format(path_noext = path_noext)
+            cmd = '{python} -m cython -3 {pyfile_noext}.py -D'.format(pyfile_noext = pyfile_noext, python = python)
         else:
-            cmd = 'cython -3 {path_noext}.py --embed -D'.format(path_noext = path_noext)
-
+            cmd = '{python} -m cython -3 {pyfile_noext}.py --embed -D'.format(pyfile_noext = pyfile_noext, python = python)
         ret = run_cmd(cmd)
-
         if ret > 0:
             raise Exception('python file to c file with cython failed')
-
         # 再混淆加密，XXX 但是现在暂时用不到
         if (level % 2) == 1:
-            confuse(path_noext + '.c')
-
+            confuse(pyfile_noext + '.c')
         # 把c 编译成so或者dll或者可执行
         # NOTE seed is a global value
         if level > 5:
             if compile_to_library:
-                print('Completed %s.py to library, and keep all temp files and py file' % path_noext)
+                print('Completed %s.py to library, and keep all temp files and py file' % pyfile_noext)
             else:
-                print('Completed %s.py to execute, and keep all temp files and py file' % path_noext)
+                print('Completed %s.py to execute, and keep all temp files and py file' % pyfile_noext)
 
-
-        cmd = template.format(path_noext = path_noext, seed = seed)
+        cmd = template.format(pyfile_noext = pyfile_noext, seed = seed)
         if level > 3 and print_cmd:
             print(cmd)
         ret = run_cmd(cmd)
@@ -203,38 +227,37 @@ def compile_file(path_noext, template, compile_to_library = True, level = 0, pri
                 raise Exception('Compile c file to dynamic link file failed')
             else:
                 raise Exception('Compile c file to executable failed')
-
         # 在windows下，把.dll文件转.pyd
         # 有些情况下，用ollvm转dll会不成功，命令是对的，重启能解决问题。
-        if WINDOWS() and os.path.exists(path_noext + ".dll") and compile_to_library:
-            # print(path_noext + ".dll")
-            os.system("move {path_noext}.dll {path_noext}.pyd".format(path_noext = path_noext))
+        if WINDOWS() and os.path.exists(pyfile_noext + ".dll") and compile_to_library:
+            # print(pyfile_noext + ".dll")
+            os.system("move {pyfile_noext}.dll {pyfile_noext}.pyd".format(pyfile_noext = pyfile_noext))
         # linux，change tarcget to 755
-        elif not WINDOWS() and not compile_to_library and os.path.exists(path_noext):
-            os.system('chmod 755 ' + path_noext)
+        elif not WINDOWS() and not compile_to_library and os.path.exists(pyfile_noext):
+            os.system('chmod 755 ' + pyfile_noext)
 
         ############ delete temprary files
         temp_file_ext = ['.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']
 
         if level > 3:
             if compile_to_library:
-                print('Completed %s.py to library, and keep all temp files and py file' % path_noext)
+                print('Completed %s.py to library, and keep all temp files and py file' % pyfile_noext)
             else:
-                print('Completed %s.py to execute, and keep all temp files and py file' % path_noext)
+                print('Completed %s.py to execute, and keep all temp files and py file' % pyfile_noext)
         else:
             if level > 1:
                 if compile_to_library:
-                    print('Completed %s.py to library, and keep py file' % path_noext)
+                    print('Completed %s.py to library, and keep py file' % pyfile_noext)
                 else:
-                    print('Completed %s.py to execute, and keep py file' % path_noext)
+                    print('Completed %s.py to execute, and keep py file' % pyfile_noext)
             else:
                 if compile_to_library:
-                    print('Completed %s.py to library, and delete all temp files' % path_noext)
+                    print('Completed %s.py to library, and delete all temp files' % pyfile_noext)
                 else:
-                    print('Completed %s.py to execute, and delete all temp files' % path_noext)
+                    print('Completed %s.py to execute, and delete all temp files' % pyfile_noext)
                 temp_file_ext.append('.py')
 
-            files_to_remove = [path_noext + ext for ext in temp_file_ext]
+            files_to_remove = [pyfile_noext + ext for ext in temp_file_ext]
             for each_file in files_to_remove:
                 try:
                     os.remove(each_file)
@@ -251,11 +274,11 @@ def compile_file(path_noext, template, compile_to_library = True, level = 0, pri
         raise(e)
 
 
-def file_to_library(path_noext, template, level = 0):
-    compile_file(path_noext, template, compile_to_library = True, level = level)
+def file_to_library(pyfile_noext, template, level = 0):
+    compile_file(pyfile_noext, template, compile_to_library = True, level = level)
 
-def file_to_execute(path_noext, template, level = 0):
-    compile_file(path_noext, template, compile_to_library = False, level = level)
+def file_to_execute(pyfile_noext, template, level = 0):
+    compile_file(pyfile_noext, template, compile_to_library = False, level = level)
 
 
 # TODO, add delete_list to delete the unnecessary files or dirs during compile stage.
@@ -271,17 +294,26 @@ def dir_to_librarys(output_dir, library_template, level = 0, mdir_list = [], mfi
             continue
 
         for each_file in files:
+            convert_to_pyd = True
             if each_file in mfile_list or \
                     each_file.startswith(r".") or \
                     os.path.join(root, each_file) in mfile_list or \
                     os.path.join(os.path.basename(root), each_file) in mfile_list:
-                continue
+                if each_file.endswith(r".py"):
+                    convert_to_pyd = False
+                else:
+                    continue
 
-            path_noext = each_file.split('.')[0]
-            path_noext = root + os.sep + path_noext
+            pyfile_noext = each_file.split('.')[0]
+            pyfile_noext = os.path.join(root, pyfile_noext)
+            pyfile       = os.path.join(root, each_file)
             ######### compile
             if each_file.endswith('.py'):
-                file_to_library(path_noext, library_template, level)
+                print(pyfile)
+                trim_pyfile(pyfile)
+                if convert_to_pyd:
+                    file_to_library(pyfile_noext, library_template, level)
+
 
 
 if __name__ == '__main__':
@@ -313,6 +345,7 @@ Options:
                      level == 1 confuse c file, not keep temp files
                      level == 0 not confuse c file, not keep temp files
   -D, --delete       files, dirs foreced to delete in the output_dir
+  -p, --python       python execute file, default python
 
 example:
   python py2lib.py -d test_dir -o target_dir -m __init__.py,setup.py -c config.ini
@@ -328,6 +361,7 @@ example:
     sync_only     = False
     sync_pyd      = False
     rm_target_dir = True
+    python        = "python"
     ############ list #######################
     delete_list  = []
     exclude_list = []
@@ -340,9 +374,9 @@ example:
     try:
         options, args = getopt.getopt(
             sys.argv[1:],
-            "hxsSkc:f:d:o:m:M:e:l:D:",
+            "hxsSkp:c:f:d:o:m:M:e:l:D:",
             ["help", "execute", "sync", "sync_pyd", "keep" \
-             "commandcfg=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "level=", "delete="]
+             "python=", "commandcfg=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "level=", "delete="]
         )
     except Exception as e:
         print('get options error', e)
@@ -353,6 +387,8 @@ example:
         if key in ['-h', '--help']:
             print(help_show)
             sys.exit(0)
+        elif key in ['-p', '--python']:
+            python = value
         elif key in ['-x', '--execute']:
             to_library = False
         elif key in ['-s', '--sync']:
@@ -434,12 +470,12 @@ example:
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
             shutil.copy(source_file, output_dir)
-            path_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
+            pyfile_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
             # NOTE file可能会编译成library或者executable
             if to_library:
-                file_to_library(path_noext, library_template, level)
+                file_to_library(pyfile_noext, library_template, level)
             else:
-                file_to_execute(path_noext, execute_template, level)
+                file_to_execute(pyfile_noext, execute_template, level)
         elif os.path.isdir(source_dir):
             sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir = rm_target_dir)
             # NOTE 只会全部编译成library
@@ -449,3 +485,5 @@ example:
     # if not command file offered, raise the exception
     else:
         raise Exception("Please check the commandcfg exists")
+
+    hidden_import_cmd = " --hidden-import=" + " --hidden-import=".join(list(set(all_imports)))
