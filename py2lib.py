@@ -3,8 +3,8 @@
 # File              : py2lib.py
 # Author            : taotao
 # Date              : 2021.01.07
-# Last Modified Date: 2021.03.11
-# Last Modified By  : taotao <taotao@myhexin.com>
+# Last Modified Date: 2021.03.27
+# Last Modified By  : leoatchina <leoatchina@outlook.com>
 
 import re
 import os, sys
@@ -329,27 +329,28 @@ py2lib needs the environment of python3 with cython installed
 Usage: python py2lib.py [options] ...
 
 Options:
-  -h, --help         Show the help info
-  -x, --execute      Compile to executable file
-  -s, --sync         sync only
-  -S, --syncpyd      sync pyd only
-  -c, --commandcfg   Set the command template config file, must be offered if not sync_only
-  -f, --file         single file, -f supervised -d when offered at same time
-  -d, --directory    Directory of your project (if use -d, you change the whole directory)
-  -o, --output       Directory to store the compile results, must be different to source_dir
-  -m, --maintain     The files you don't want to compile from py to library file
-                     example: -m __init__.py,setup.py
-  -M, --maintaindir  like maintain, but dirs
-  -e, --exclude      Directories or files that you do not want to sync to output dir.
-                     __pycache__, .vscode, .git, .idea, .svn will always not be synced
-  -l, --level        level == 5 confuse c file, keep temp files and py file
-                     level == 4 not confuse c file, keep temp files and py file
-                     level == 3 confuse c file, keep py file only
-                     level == 2 not confuse c file, keep py file only
-                     level == 1 confuse c file, not keep temp files
-                     level == 0 not confuse c file, not keep temp files
-  -D, --delete       files, dirs foreced to delete in the output_dir
-  -p, --python       python execute file, default python
+  -h, --help        Show the help info
+  -x, --execute     Compile to executable file
+  -s, --sync        Sync only
+  -S, --syncpyd     Sync pyd only
+  -c, --commandcfg  Set the command template config file, must be offered if not sync_only
+  -f, --file        Single file, -f supervised -d when offered at same time
+  -d, --directory   Directory of your project (if use -d, you change the whole directory)
+  -o, --output      Directory to store the compile results, must be different to source_dir
+  -m, --maintain    The files you don't want to compile from py to library file
+                    example: -m __init__.py,setup.py
+  -M, --maintaindir like maintain, but dirs
+  -e, --exclude     Directories or files that you do not want to sync to output dir.
+                    __pycache__, .vscode, .git, .idea, .svn will always not be synced
+  -l, --level       level == 5 confuse c file, keep temp files and py file
+                    level == 4 not confuse c file, keep temp files and py file
+                    level == 3 confuse c file, keep py file only
+                    level == 2 not confuse c file, keep py file only
+                    level == 1 confuse c file, not keep temp files
+                    level == 0 not confuse c file, not keep temp files
+  -D, --delete      Files, dirs foreced to delete in the output_dir
+  -p, --python      Python executable file, default python
+  -i, --imports     Pyinstaller hidden import
 
 example:
   python py2lib.py -d test_dir -o target_dir -m __init__.py,setup.py -c config.ini
@@ -393,7 +394,7 @@ example:
         if key in ['-h', '--help']:
             print(help_show)
             sys.exit(0)
-        elif key in ['-i', '--init']:
+        elif key in ['-i', '--imports']:
             pyinst_imports = value.replace(' ', '').split(",")
         elif key in ['-p', '--python']:
             python = value
@@ -497,7 +498,7 @@ example:
         raise Exception("Please check the commandcfg exists")
     if pyinst_command:
         all_imports.extend(pyinst_imports)
-        if all_imports:
+        if all_imports and r"{hidden}" in pyinst_command:
             # print(all_imports)
             hidden_import = " --hidden-import=" + " --hidden-import=".join(all_imports)
         else:
