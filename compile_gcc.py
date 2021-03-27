@@ -1,18 +1,18 @@
-#!/usr/bin/env python36
+#!/usr/bin/env python37
 # -*- coding: utf-8 -*-
 # File              : compile_gcc.py
 # Author            : taotao <taotao@myhexin.com>
 # Date              : 2021.01.08
-# Last Modified Date: 2021.01.14
-# Last Modified By  : taotao <taotao@myhexin.com>
+# Last Modified Date: 2021.03.27
+# Last Modified By  : leoatchina <leoatchina@outlook.com>
 
 import os
 
-os.environ['PATH'] = r"d:\msys2\mingw64\bin" + ';' + os.environ['PATH']
+os.environ['PATH'] = r'c:\python37;' + os.environ['PATH']
 
 cmd = (
-    r"c:\tools\anaconda3\python py2lib.py "
-    r"-p c:\tools\anaconda3\python "
+    r"c:\python37\python py2lib.py "
+    r"-p c:\python37\python.exe "
     r"-d c:\work\projects\aes_cypher "
     r"-o c:\work\projects\aes_cypher_c "
     r"-c config_gcc.ini "
@@ -23,7 +23,7 @@ print(cmd)
 os.system(cmd)
 
 # cmd = (
-#     r"d:\python36\python py2lib.py "
+#     r"d:\python37\python py2lib.py "
 #     r"-f .\test\aaa.py "
 #     r"-x "
 #     r"-o D:\test "

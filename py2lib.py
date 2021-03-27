@@ -10,7 +10,17 @@ import re
 import os, sys
 import getopt
 import shutil
+import logging
 from datetime import datetime
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
+handler = logging.FileHandler("log.log")
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 # seed is for cypher seed
 seed = '0x' + datetime.today().strftime('%Y%m%d')
@@ -57,10 +67,9 @@ def trim_pyfile(pyfile, wrtfile = None):
         encoding = 'utf8'
 
     global all_imports
-    onefile_imports = []
 
+    pyfile_imports = []
     with open(pyfile, 'r', encoding= 'utf8') as fp:
-        one_pyfile_imports = []
         continue_import = True
         for line in fp.readlines():
             line_strip = line.strip()
@@ -83,21 +92,22 @@ def trim_pyfile(pyfile, wrtfile = None):
                     line_strip = line_strip.split("as")[0].strip()
                     line_strip = line_strip.replace("import ", "").replace(" ", "")
                     import_raw = line_strip.replace(" ", "").replace("import", "").split(",")
-                    one_pyfile_imports.extend(import_raw)
+                    pyfile_imports.extend(import_raw)
                 elif line_strip.startswith("from "):
                     line_strip = re.sub(r"\s{2,}", " ", line_strip.replace("from ", ''))
                     pkg_import = line_strip.split(" ")[0]
                     targets    = line_strip.split(" ")[2]
                     # NOTE if one python file conatins 'from xxx import *', this file will not be compile to pyd
                     if r"*" in targets:
-                        one_pyfile_imports = []
-                        convert_to_pyd     = False
-                        continue_import    = False
+                        pyfile_imports  = []
+                        convert_to_pyd  = False
+                        continue_import = False
                     else:
-                        targets    = targets.replace(" ", '').split(",")
-                        import_raw = line_strip.replace(" ", "").replace("import", "").split(",")
-                        one_pyfile_imports.extend(import_raw)
+                        targets = targets.replace(" ", '').split(",")
+                        # pyfile_imports.append(pkg_import.split(r".")[0])
+                        pyfile_imports.extend([pkg_import + "." + target for target in targets])
 
+    # 没有找到python脚本
     if len(lines) <= 1:
         print(pyfile + ' has no workable python script!')
         return
@@ -108,8 +118,8 @@ def trim_pyfile(pyfile, wrtfile = None):
     with open(wrtfile, 'w') as fp:
         fp.writelines(lines)
 
-    if one_pyfile_imports:
-        for each in one_pyfile_imports:
+    if pyfile_imports:
+        for each in pyfile_imports:
             if each in all_imports:
                 pass
             else:
@@ -294,25 +304,19 @@ def dir_to_librarys(output_dir, library_template, level = 0, mdir_list = [], mfi
             continue
 
         for each_file in files:
-            convert_to_pyd = True
             if each_file in mfile_list or \
                     each_file.startswith(r".") or \
                     os.path.join(root, each_file) in mfile_list or \
                     os.path.join(os.path.basename(root), each_file) in mfile_list:
-                if each_file.endswith(r".py"):
-                    convert_to_pyd = False
-                else:
-                    continue
+                continue
 
             pyfile_noext = each_file.split('.')[0]
             pyfile_noext = os.path.join(root, pyfile_noext)
             pyfile       = os.path.join(root, each_file)
             ######### compile
             if each_file.endswith('.py'):
-                print(pyfile)
                 trim_pyfile(pyfile)
-                if convert_to_pyd:
-                    file_to_library(pyfile_noext, library_template, level)
+                file_to_library(pyfile_noext, library_template, level)
 
 
 
@@ -362,6 +366,7 @@ example:
     sync_pyd      = False
     rm_target_dir = True
     python        = "python"
+    pyinst_imports = []
     ############ list #######################
     delete_list  = []
     exclude_list = []
@@ -370,6 +375,7 @@ example:
     ########### template ########################
     library_template = ''
     execute_template = ''
+    pyinst_command = ''
 
     try:
         options, args = getopt.getopt(
@@ -387,6 +393,8 @@ example:
         if key in ['-h', '--help']:
             print(help_show)
             sys.exit(0)
+        elif key in ['-i', '--init']:
+            pyinst_imports = value.replace(' ', '').split(",")
         elif key in ['-p', '--python']:
             python = value
         elif key in ['-x', '--execute']:
@@ -459,6 +467,8 @@ example:
                         library_template = r"=".join(line.split(r'=')[1:]).strip()
                     elif line.startswith("execute_template"):
                         execute_template = r"=".join(line.split(r'=')[1:]).strip()
+                    elif line.startswith("pyinst_command"):
+                        pyinst_command = r"=".join(line.split(r'=')[1:]).strip()
 
         if library_template == '' and to_library:
             raise Exception("Please check the commandcfg if library_template exists")
@@ -485,5 +495,15 @@ example:
     # if not command file offered, raise the exception
     else:
         raise Exception("Please check the commandcfg exists")
+    if pyinst_command:
+        all_imports.extend(pyinst_imports)
+        if all_imports:
+            # print(all_imports)
+            hidden_import = " --hidden-import=" + " --hidden-import=".join(all_imports)
+        else:
+            hidden_import = ""
+        cmd = pyinst_command.format(hidden = hidden_import)
+        logger.info(cmd)
+        print(cmd)
+        os.system(cmd)
 
-    hidden_import_cmd = " --hidden-import=" + " --hidden-import=".join(list(set(all_imports)))
