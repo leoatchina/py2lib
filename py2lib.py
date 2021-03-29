@@ -3,11 +3,12 @@
 # File              : py2lib.py
 # Author            : taotao
 # Date              : 2021.01.07
-# Last Modified Date: 2021.03.27
+# Last Modified Date: 2021.03.29
 # Last Modified By  : leoatchina <leoatchina@outlook.com>
 
 import re
-import os, sys
+import os
+import sys
 import getopt
 import shutil
 import logging
@@ -88,10 +89,9 @@ def trim_pyfile(pyfile, wrtfile = None):
 
             if continue_import:
                 if line_strip.startswith('import '):
-                    line_strip = re.sub(r"\s{2,}", " ", line_strip)
                     line_strip = line_strip.split("as")[0].strip()
-                    line_strip = line_strip.replace("import ", "").replace(" ", "")
-                    import_raw = line_strip.replace(" ", "").replace("import", "").split(",")
+                    line_strip = re.sub(r"\s{2,}", " ", line_strip)
+                    import_raw = line_strip.replace("import ", "").split(",")
                     pyfile_imports.extend(import_raw)
                 elif line_strip.startswith("from "):
                     line_strip = re.sub(r"\s{2,}", " ", line_strip.replace("from ", ''))
@@ -99,9 +99,7 @@ def trim_pyfile(pyfile, wrtfile = None):
                     targets    = line_strip.split(" ")[2]
                     # NOTE if one python file conatins 'from xxx import *', this file will not be compile to pyd
                     if r"*" in targets:
-                        pyfile_imports  = []
-                        convert_to_pyd  = False
-                        continue_import = False
+                        pyfile_imports.append(pkg_import)
                     else:
                         targets = targets.replace(" ", '').split(",")
                         # pyfile_imports.append(pkg_import.split(r".")[0])
@@ -123,7 +121,11 @@ def trim_pyfile(pyfile, wrtfile = None):
             if each in all_imports:
                 pass
             else:
-                all_imports.append(each)
+                try:
+                    exec('import %s' % each)
+                    all_imports.append(each)
+                except Exception:
+                    print("Maybe %s is a self defined script/module" % each)
 
 def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, rm_target_dir = True, sync_pyd = False):
     '''
@@ -219,13 +221,14 @@ def compile_file(pyfile_noext, template, compile_to_library = True, level = 0, p
         # 再混淆加密，XXX 但是现在暂时用不到
         if (level % 2) == 1:
             confuse(pyfile_noext + '.c')
+
         # 把c 编译成so或者dll或者可执行
         # NOTE seed is a global value
-        if level > 5:
-            if compile_to_library:
-                print('Completed %s.py to library, and keep all temp files and py file' % pyfile_noext)
-            else:
-                print('Completed %s.py to execute, and keep all temp files and py file' % pyfile_noext)
+        # if level > 5:
+        #     if compile_to_library:
+        #         print('Completed %s.py to library, and keep all temp files and py file' % pyfile_noext)
+        #     else:
+        #         print('Completed %s.py to execute, and keep all temp files and py file' % pyfile_noext)
 
         cmd = template.format(pyfile_noext = pyfile_noext, seed = seed)
         if level > 3 and print_cmd:
@@ -273,6 +276,7 @@ def compile_file(pyfile_noext, template, compile_to_library = True, level = 0, p
                     os.remove(each_file)
                 except Exception:
                     pass
+
 
     except Exception as e:
         print('========================')
@@ -433,7 +437,19 @@ example:
                 if d.endswith(r"/"):
                     d = d[:-1]
                 mdir_list.append(d)
+
+    ### exclude_list
     exclude_list = list(set(['.gitignore', '.git', '.svn', '.root', '.vscode', '.idea', '__pycache__', '.task', '.vim', '.gitlab-ci.yml', '.pyc'] + exclude_list))
+
+    pkgs = list(sys.modules.keys())
+    lines = os.popen('c:\python37\python -m pip freeze').readlines()
+
+    for line in lines:
+        line = line.strip()
+        if r"=" in line:
+            pkgs.append(line.split(r"=")[0])
+    print(pkgs)
+
 
     ############# source_dir
     if len(source_dir) > 0 and source_dir[-1] == r'/':
@@ -489,22 +505,21 @@ example:
                 file_to_execute(pyfile_noext, execute_template, level)
         elif os.path.isdir(source_dir):
             sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir = rm_target_dir)
-            # NOTE 只会全部编译成library
+            # NOTE 只会全部编译成library, 不会编译成可执行程序
             dir_to_librarys(output_dir, library_template, level, mdir_list, mfile_list)
         else:
             print('neither source file nor source dir offered, please check!!!')
     # if not command file offered, raise the exception
     else:
         raise Exception("Please check the commandcfg exists")
+
     if pyinst_command:
-        all_imports.extend(pyinst_imports)
+
         if all_imports and r"{hidden}" in pyinst_command:
             # print(all_imports)
             hidden_import = " --hidden-import=" + " --hidden-import=".join(all_imports)
         else:
             hidden_import = ""
         cmd = pyinst_command.format(hidden = hidden_import)
-        logger.info(cmd)
         print(cmd)
         os.system(cmd)
-
