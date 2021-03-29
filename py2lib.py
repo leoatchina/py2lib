@@ -125,7 +125,8 @@ def trim_pyfile(pyfile, wrtfile = None):
                     exec('import %s' % each)
                     all_imports.append(each)
                 except Exception:
-                    print("Maybe %s is a self defined script/module" % each)
+                    pass
+                    # print("Maybe %s is a self defined script/module" % each)
 
 def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, rm_target_dir = True, sync_pyd = False):
     '''
