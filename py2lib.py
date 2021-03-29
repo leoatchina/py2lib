@@ -102,7 +102,7 @@ def trim_pyfile(pyfile, wrtfile = None):
                         pyfile_imports.append(pkg_import)
                     else:
                         targets = targets.replace(" ", '').split(",")
-                        # pyfile_imports.append(pkg_import.split(r".")[0])
+                        pyfile_imports.append(pkg_import.split(r".")[0])
                         pyfile_imports.extend([pkg_import + "." + target for target in targets])
 
     # 没有找到python脚本
@@ -117,16 +117,16 @@ def trim_pyfile(pyfile, wrtfile = None):
         fp.writelines(lines)
 
     if pyfile_imports:
-        for each in pyfile_imports:
-            if each in all_imports:
+        for each_import in pyfile_imports:
+            if each_import in all_imports:
                 pass
             else:
                 try:
-                    exec('import %s' % each)
-                    all_imports.append(each)
+                    exec('import %s' % each_import)
+                    all_imports.append(each_import)
                 except Exception:
                     pass
-                    # print("Maybe %s is a self defined script/module" % each)
+                    # print("Maybe %s is a self defined script/module" % each_import)
 
 def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, rm_target_dir = True, sync_pyd = False):
     '''
@@ -383,6 +383,10 @@ example:
     execute_template = ''
     pyinst_command = ''
 
+    ########## sync_pyd ########
+    pyd_source_dir = ''
+    pyd_target_dir = ''
+
     try:
         options, args = getopt.getopt(
             sys.argv[1:],
@@ -442,16 +446,6 @@ example:
     ### exclude_list
     exclude_list = list(set(['.gitignore', '.git', '.svn', '.root', '.vscode', '.idea', '__pycache__', '.task', '.vim', '.gitlab-ci.yml', '.pyc'] + exclude_list))
 
-    pkgs = list(sys.modules.keys())
-    lines = os.popen('c:\python37\python -m pip freeze').readlines()
-
-    for line in lines:
-        line = line.strip()
-        if r"=" in line:
-            pkgs.append(line.split(r"=")[0])
-    print(pkgs)
-
-
     ############# source_dir
     if len(source_dir) > 0 and source_dir[-1] == r'/':
         source_dir = source_dir[-1]
@@ -463,6 +457,7 @@ example:
     if os.path.abspath(source_dir) == os.path.abspath(output_dir):
         print("Source dir equals output dir!")
         sys.exit(1)
+
     if sync_only:
         if os.path.isfile(source_file):
             if not sync_pyd or sync_pyd and source_file.endswith(r'.pyd'):
@@ -471,9 +466,9 @@ example:
                 shutil.copy(source_file, output_dir)
         elif os.path.isdir(source_dir):
             if sync_pyd:
-                sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir = False, sync_pyd = True)
+                sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir=False, sync_pyd=True)
             else:
-                sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir = rm_target_dir)
+                sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir=rm_target_dir)
     elif os.path.isfile(commandcfg):
         # check the template
         with open(commandcfg) as fp:
@@ -487,6 +482,13 @@ example:
                         execute_template = r"=".join(line.split(r'=')[1:]).strip()
                     elif line.startswith("pyinst_command"):
                         pyinst_command = r"=".join(line.split(r'=')[1:]).strip()
+                    elif line.startswith("pyd_sync_dirs"):
+                        try:
+                            pyd_sync_dirs = line.split("=")[1].strip()
+                            pyd_source_dir, pyd_target_dir = re.sub(r"\s{2,}", " ", pyd_sync_dirs).split(" ")
+                        except Exception:
+                            pyd_source_dir = pyd_target_dir = ''
+
 
         if library_template == '' and to_library:
             raise Exception("Please check the commandcfg if library_template exists")
@@ -510,17 +512,27 @@ example:
             dir_to_librarys(output_dir, library_template, level, mdir_list, mfile_list)
         else:
             print('neither source file nor source dir offered, please check!!!')
-    # if not command file offered, raise the exception
     else:
+        # if not command file offered, raise the exception
         raise Exception("Please check the commandcfg exists")
 
-    if pyinst_command:
 
+
+    # compile to pyd, use pyinstaller to create executable file, and copy all pyd from souce_dir to target_dir
+    if pyinst_command:
         if all_imports and r"{hidden}" in pyinst_command:
             # print(all_imports)
             hidden_import = " --hidden-import=" + " --hidden-import=".join(all_imports)
         else:
             hidden_import = ""
         cmd = pyinst_command.format(hidden = hidden_import)
+        print("============================================================")
         print(cmd)
+        print("============================================================")
         os.system(cmd)
+
+        if pyd_source_dir and pyd_target_dir:
+            print("============================================================")
+            print('copy all pyd from %s to %s' % (pyd_source_dir, pyd_target_dir))
+            sync_dirs(pyd_source_dir, pyd_target_dir, rm_target_dir=False, sync_pyd=True)
+            print("============================================================")
