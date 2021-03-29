@@ -13,8 +13,8 @@ os.environ['PATH'] = r'c:\python37;' + os.environ['PATH']
 cmd = (
     r"c:\python37\python py2lib.py "
     r"-p c:\python37\python.exe "
-    r"-d c:\work\projects\aes_cypher "
-    r"-o c:\build\aes_cypher "
+    r"-d d:\work\projects\aes_cypher "
+    r"-o d:\build\aes_cypher "
     r"-c config_gcc.ini "
     r"-m aes_cypher_gui.py "
     r"-e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp "
