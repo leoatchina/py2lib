@@ -1,31 +1,26 @@
 #!/usr/bin/env python36
 # -*- coding: utf-8 -*-
-# File              : compile_gcc.py
+# File              : compile_ollvm.py
 # Author            : taotao <taotao@myhexin.com>
 # Date              : 2021.01.08
-# Last Modified Date: 2021.01.14
+# Last Modified Date: 2021.03.29
 # Last Modified By  : taotao <taotao@myhexin.com>
 
 import os
-import time
 
-os.environ['PATH'] = r"D:\python36_GScopeGUI\scripts;" + os.environ['PATH']
-
-# os.system(r'D:\python36_GScopeGUI\scripts\pyinstaller -y --key ths@123 --distpath d:\build\compile --icon .\test\126.ico .\test\aaa.py')
+os.environ['PATH'] = r'c:\python37;' + os.environ['PATH']
 
 cmd = (
-    r"d:\python36_GScopeGUI\python py2lib.py "
-    r"-d .\test "
-    r"-o d:\test "
+    r"c:\python37\python py2lib.py "
+    r"-p c:\python37\python.exe "
+    r"-d d:\work\projects\aes_cypher "
+    r"-o d:\build\aes_cypher "
     r"-c config_ollvm.ini "
-    r"-m aaa.py "
-    r"-e .ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp "
+    r"-m aes_cypher_gui.py "
+    r"-e test.py,.ini,.md,.txt,.sh,.lib,.obj,.so,.dll,.cmd,.bat,.exp "
 )
 print(cmd)
 os.system(cmd)
-
-
-
 # cmd = (
 #     r"d:\python36_GScopeGUI\python py2lib.py "
 #     r"-S "

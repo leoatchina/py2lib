@@ -525,7 +525,13 @@ example:
             hidden_import = " --hidden-import=" + " --hidden-import=".join(all_imports)
         else:
             hidden_import = ""
-        cmd = pyinst_command.format(hidden = hidden_import)
+
+        if r"{key}" in pyinst_command:
+            key = " --key={key} ".format(key=datetime.now().strftime("%Y%m%d"))
+        else:
+            key = ''
+
+        cmd = pyinst_command.format(hidden=hidden_import, key=key)
         print("============================================================")
         print(cmd)
         print("============================================================")
