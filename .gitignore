@@ -157,3 +157,4 @@ __pycache__
 /dist
 /target
 *.spec
+test*
