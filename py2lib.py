@@ -102,9 +102,8 @@ def trim_pyfile(pyfile, wrtfile = None):
                         pyfile_imports.append(pkg_import)
                     else:
                         targets = targets.replace(" ", '').split(",")
-                        pyfile_imports.append(pkg_import.split(r".")[0])
+                        pyfile_imports.append(pkg_import)
                         pyfile_imports.extend([pkg_import + "." + target for target in targets])
-
     # 没有找到python脚本
     if len(lines) <= 1:
         print(pyfile + ' has no workable python script!')
@@ -540,5 +539,5 @@ example:
         if pyd_source_dir and pyd_target_dir:
             print("============================================================")
             print('copy all pyd from %s to %s' % (pyd_source_dir, pyd_target_dir))
-            sync_dirs(pyd_source_dir, pyd_target_dir, rm_target_dir=False, sync_pyd=True)
+            sync_dirs(pyd_source_dir, pyd_target_dir, exclude_list=exclude_list, rm_target_dir=False, sync_pyd=True)
             print("============================================================")
