@@ -158,3 +158,4 @@ __pycache__
 /target
 *.spec
 test*
+*.spec

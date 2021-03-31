@@ -62,10 +62,10 @@ def trim_pyfile(pyfile, wrtfile = None):
     docstring_found = False
     if WINDOWS():
         lines = ["# -*- coding: gbk -*-\n"]
-        encoding = 'gbk'
+        # encoding = 'gbk'
     else:
         lines = ["# -*- coding: utf-8 -*-\n"]
-        encoding = 'utf8'
+        # encoding = 'utf8'
 
     global all_imports
 
@@ -89,21 +89,26 @@ def trim_pyfile(pyfile, wrtfile = None):
 
             if continue_import:
                 if line_strip.startswith('import '):
-                    line_strip = line_strip.split("as")[0].strip()
+                    line_strip = line_strip.split("as ")[0].strip()
                     line_strip = re.sub(r"\s{2,}", " ", line_strip)
                     import_raw = line_strip.replace("import ", "").split(",")
                     pyfile_imports.extend(import_raw)
-                elif line_strip.startswith("from "):
-                    line_strip = re.sub(r"\s{2,}", " ", line_strip.replace("from ", ''))
-                    pkg_import = line_strip.split(" ")[0]
-                    targets    = line_strip.split(" ")[2]
-                    # NOTE if one python file conatins 'from xxx import *', this file will not be compile to pyd
-                    if r"*" in targets:
-                        pyfile_imports.append(pkg_import)
-                    else:
-                        targets = targets.replace(" ", '').split(",")
-                        pyfile_imports.append(pkg_import)
-                        pyfile_imports.extend([pkg_import + "." + target for target in targets])
+                elif line_strip.startswith("from ") and "import " in line_strip:
+                    try:
+                        line_strip = re.sub(r"\s{2,}", " ", line_strip.split("as ")[0].replace(r")", "").replace(r"(", "").replace("from ", '')).strip()
+                        pkg_import = line_strip.split(" ")[0]
+                        targets    = line_strip.split("import ")[1].replace(" ", "")
+                        # NOTE if one python file conatins 'from xxx import *', this file will not be compile to pyd
+                        if r"*" in targets:
+                            pyfile_imports.append(pkg_import)
+                        else:
+                            pyfile_imports.append(pkg_import)
+                            targets = targets.replace(" ", "").split(",")
+                            targets = [pkg_import + "." + target for target in targets]
+                            pyfile_imports.extend(targets)
+                    except Exception as e:
+                        print(line_strip)
+                        raise e
     # 没有找到python脚本
     if len(lines) <= 1:
         print(pyfile + ' has no workable python script!')
@@ -117,6 +122,7 @@ def trim_pyfile(pyfile, wrtfile = None):
 
     if pyfile_imports:
         for each_import in pyfile_imports:
+            each_import = each_import.strip()
             if each_import in all_imports:
                 pass
             else:
@@ -322,8 +328,6 @@ def dir_to_librarys(output_dir, library_template, level = 0, mdir_list = [], mfi
                 trim_pyfile(pyfile)
                 file_to_library(pyfile_noext, library_template, level)
 
-
-
 if __name__ == '__main__':
     help_show = '''
 py2lib is tool to change the .py to .so or .pyd, you can use it to hide the source code of py
@@ -371,16 +375,17 @@ example:
     sync_pyd      = False
     rm_target_dir = True
     python        = "python"
-    pyinst_imports = []
-    ############ list #######################
+    # ########### list #######################
     delete_list  = []
     exclude_list = []
     mdir_list    = []
     mfile_list   = []
-    ########### template ########################
-    library_template = ''
-    execute_template = ''
-    pyinst_command = ''
+    # ########## template ########################
+    library_template   = ''
+    execute_template   = ''
+    pyinst_command     = ''
+    run_command        = ''
+    addtional_commands = []
 
     ########## sync_pyd ########
     pyd_source_dir = ''
@@ -403,7 +408,7 @@ example:
             print(help_show)
             sys.exit(0)
         elif key in ['-i', '--imports']:
-            pyinst_imports = value.replace(' ', '').split(",")
+            all_imports = value.replace(' ', '').split(",")
         elif key in ['-p', '--python']:
             python = value
         elif key in ['-x', '--execute']:
@@ -476,25 +481,44 @@ example:
                 line = line.strip()
                 if line != '':
                     if line.startswith("library_template"):
-                        library_template = r"=".join(line.split(r'=')[1:]).strip()
+                        try:
+                            library_template = r"=".join(line.split(r'=')[1:]).strip()
+                        except Exception:
+                            library_template = ''
                     elif line.startswith("execute_template"):
-                        execute_template = r"=".join(line.split(r'=')[1:]).strip()
+                        try:
+                            execute_template = r"=".join(line.split(r'=')[1:]).strip()
+                        except Exception:
+                            execute_template = ''
                     elif line.startswith("pyinst_command"):
-                        pyinst_command = r"=".join(line.split(r'=')[1:]).strip()
+                        try:
+                            pyinst_command = r"=".join(line.split(r'=')[1:]).strip()
+                        except Exception:
+                            pyinst_command = ''
                     elif line.startswith("pyd_sync_dirs"):
                         try:
                             pyd_sync_dirs = line.split("=")[1].strip()
                             pyd_source_dir, pyd_target_dir = re.sub(r"\s{2,}", " ", pyd_sync_dirs).split(" ")
                         except Exception:
                             pyd_source_dir = pyd_target_dir = ''
-
+                    elif line.startswith('run_command'):
+                        try:
+                            run_command = line.split("=")[1].strip()
+                        except Exception:
+                            run_command = ''
+                    elif line.startswith('addtional_command'):
+                        try:
+                            addtional_command = "=".join(line.split("=")[1:])
+                            addtional_commands.append(addtional_command)
+                        except Exception:
+                            pass
 
         if library_template == '' and to_library:
             raise Exception("Please check the commandcfg if library_template exists")
         elif execute_template == '' and not to_library:
             raise Exception("Please check the commandcfg if execute_template exists")
 
-        ############# XXX do compile
+        # ############ XXX do compile
         if os.path.isfile(source_file):
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
@@ -515,8 +539,6 @@ example:
         # if not command file offered, raise the exception
         raise Exception("Please check the commandcfg exists")
 
-
-
     # compile to pyd, use pyinstaller to create executable file, and copy all pyd from souce_dir to target_dir
     if pyinst_command:
         if all_imports and r"{hidden}" in pyinst_command:
@@ -529,15 +551,29 @@ example:
             key = " --key={key} ".format(key=datetime.now().strftime("%Y%m%d"))
         else:
             key = ''
+        if source_dir:
+            if pyinst_command:
+                cmd = pyinst_command.format(hidden=hidden_import, key=key)
+                print("================= pyinstaller_command ======================")
+                print(cmd)
+                print("============================================================")
+                os.system(cmd)
 
-        cmd = pyinst_command.format(hidden=hidden_import, key=key)
-        print("============================================================")
-        print(cmd)
-        print("============================================================")
-        os.system(cmd)
+            if pyd_source_dir and pyd_target_dir:
+                print("=================== sync command ============================")
+                print('copy all pyd from %s to %s' % (pyd_source_dir, pyd_target_dir))
+                sync_dirs(pyd_source_dir, pyd_target_dir, exclude_list=exclude_list, rm_target_dir=False, sync_pyd=True)
+                print("============================================================")
 
-        if pyd_source_dir and pyd_target_dir:
-            print("============================================================")
-            print('copy all pyd from %s to %s' % (pyd_source_dir, pyd_target_dir))
-            sync_dirs(pyd_source_dir, pyd_target_dir, exclude_list=exclude_list, rm_target_dir=False, sync_pyd=True)
-            print("============================================================")
+            if addtional_commands:
+                print("=================== addtional command ======================")
+                for command in addtional_commands:
+                    print(command)
+                    os.system(command)
+                print("============================================================")
+
+            if run_command:
+                print("================== run command ==============================")
+                print(run_command)
+                print("============================================================")
+                os.system(run_command)
