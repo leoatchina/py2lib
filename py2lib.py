@@ -3,8 +3,8 @@
 # File              : py2lib.py
 # Author            : taotao
 # Date              : 2021.01.07
-# Last Modified Date: 2021.03.29
-# Last Modified By  : leoatchina <leoatchina@outlook.com>
+# Last Modified Date: 2022.09.22
+# Last Modified By  : taotao <taotao@myhexin.com>
 
 import re
 import os
@@ -62,7 +62,6 @@ def trim_pyfile(pyfile, wrtfile = None):
     docstring_found = False
     if WINDOWS():
         lines = ["# -*- coding: gbk -*-\n"]
-        # encoding = 'gbk'
     else:
         lines = ["# -*- coding: utf-8 -*-\n"]
         # encoding = 'utf8'
@@ -255,7 +254,7 @@ def compile_file(pyfile_noext, template, compile_to_library = True, level = 0, p
         elif not WINDOWS() and not compile_to_library and os.path.exists(pyfile_noext):
             os.system('chmod 755 ' + pyfile_noext)
 
-        ############ delete temprary files
+        # ########### delete temprary files
         temp_file_ext = ['.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']
 
         if level > 3:
@@ -282,8 +281,6 @@ def compile_file(pyfile_noext, template, compile_to_library = True, level = 0, p
                     os.remove(each_file)
                 except Exception:
                     pass
-
-
     except Exception as e:
         print('========================')
         try:
@@ -323,10 +320,11 @@ def dir_to_librarys(output_dir, library_template, level = 0, mdir_list = [], mfi
             pyfile_noext = each_file.split('.')[0]
             pyfile_noext = os.path.join(root, pyfile_noext)
             pyfile       = os.path.join(root, each_file)
-            ######### compile
+            # ######## compile
             if each_file.endswith('.py'):
                 trim_pyfile(pyfile)
                 file_to_library(pyfile_noext, library_template, level)
+
 
 if __name__ == '__main__':
     help_show = '''
@@ -358,13 +356,13 @@ Options:
                     level == 0 not confuse c file, not keep temp files
   -D, --delete      Files, dirs foreced to delete in the output_dir
   -p, --python      Python executable file, default python
-  -i, --imports     Pyinstaller hidden import
+  -i, --imports     hidden import
 
 example:
   python py2lib.py -d test_dir -o target_dir -m __init__.py,setup.py -c config.ini
     '''
 
-    ############ basic ########################
+    # ########### basic ########################
     level         = 0
     to_library    = True
     source_file   = ''
@@ -383,11 +381,11 @@ example:
     # ########## template ########################
     library_template   = ''
     execute_template   = ''
-    pyinst_command     = ''
+    compile_command    = ''
     run_command        = ''
     addtional_commands = []
 
-    ########## sync_pyd ########
+    # ######### sync_pyd ########
     pyd_source_dir = ''
     pyd_target_dir = ''
 
@@ -490,11 +488,11 @@ example:
                             execute_template = r"=".join(line.split(r'=')[1:]).strip()
                         except Exception:
                             execute_template = ''
-                    elif line.startswith("pyinst_command"):
+                    elif line.startswith("compile_command"):
                         try:
-                            pyinst_command = r"=".join(line.split(r'=')[1:]).strip()
+                            compile_command = r"=".join(line.split(r'=')[1:]).strip()
                         except Exception:
-                            pyinst_command = ''
+                            compile_command = ''
                     elif line.startswith("pyd_sync_dirs"):
                         try:
                             pyd_sync_dirs = line.split("=")[1].strip()
@@ -539,21 +537,22 @@ example:
         # if not command file offered, raise the exception
         raise Exception("Please check the commandcfg exists")
 
-    # compile to pyd, use pyinstaller to create executable file, and copy all pyd from souce_dir to target_dir
-    if pyinst_command:
-        if all_imports and r"{hidden}" in pyinst_command:
+    # compile to pyd, use compile cmd to create executable file, and copy all pyd from souce_dir to target_dir
+    if compile_command:
+        if all_imports and r"{hidden}" in compile_command:
             # print(all_imports)
             hidden_import = " --hidden-import=" + " --hidden-import=".join(all_imports)
         else:
             hidden_import = ""
 
-        if r"{key}" in pyinst_command:
+        if r"{key}" in compile_command:
             key = " --key={key} ".format(key=datetime.now().strftime("%Y%m%d"))
         else:
             key = ''
+
         if source_dir:
-            if pyinst_command:
-                cmd = pyinst_command.format(hidden=hidden_import, key=key)
+            if compile_command:
+                cmd = compile_command.format(hidden=hidden_import, key=key)
                 print("================= pyinstaller_command ======================")
                 print(cmd)
                 print("============================================================")
