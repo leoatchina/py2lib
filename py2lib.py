@@ -108,6 +108,7 @@ def trim_pyfile(pyfile, wrtfile = None):
                     except Exception as e:
                         print(line_strip)
                         raise e
+
     # 没有找到python脚本
     if len(lines) <= 1:
         print(pyfile + ' has no workable python script!')
@@ -130,7 +131,6 @@ def trim_pyfile(pyfile, wrtfile = None):
                     all_imports.append(each_import)
                 except Exception:
                     pass
-                    # print("Maybe %s is a self defined script/module" % each_import)
 
 def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, rm_target_dir = True, sync_pyd = False):
     '''
@@ -180,7 +180,6 @@ def confuse(c_source_file):
     目的是为了不被强行调用时，爆出execption的详细情况
     '''
     with open(c_source_file, 'r') as fp:
-
         lines = fp.readlines()
 
     with open(c_source_file, 'w') as fp:
@@ -209,14 +208,14 @@ def confuse(c_source_file):
                 fp.write(line)
 
 
-def compile_file(pyfile_noext, template, compile_to_library = True, level = 0, print_cmd = False):
+def compile_file(pyfile_noext, template, b_tolib = True, level = 0, print_cmd = False):
     '''
     pyfile_noext is the path of the py file without .py surfix
-    it with compile to c_file and compile to .so  or .dll file
+    it will be converted to c file and then compile to .so  or .dll file
     '''
     try:
         # cython to c file
-        if compile_to_library:
+        if b_tolib:
             cmd = '{python} -m cython -3 {pyfile_noext}.py -D'.format(pyfile_noext = pyfile_noext, python = python)
         else:
             cmd = '{python} -m cython -3 {pyfile_noext}.py --embed -D'.format(pyfile_noext = pyfile_noext, python = python)
@@ -227,49 +226,42 @@ def compile_file(pyfile_noext, template, compile_to_library = True, level = 0, p
         if (level % 2) == 1:
             confuse(pyfile_noext + '.c')
 
-        # 把c 编译成so或者dll或者可执行
-        # NOTE seed is a global value
-        # if level > 5:
-        #     if compile_to_library:
-        #         print('Completed %s.py to library, and keep all temp files and py file' % pyfile_noext)
-        #     else:
-        #         print('Completed %s.py to execute, and keep all temp files and py file' % pyfile_noext)
-
         cmd = template.format(pyfile_noext = pyfile_noext, seed = seed)
         if level > 3 and print_cmd:
             print(cmd)
         ret = run_cmd(cmd)
 
         if ret > 0:
-            if compile_to_library:
+            if b_tolib:
                 raise Exception('Compile c file to dynamic link file failed')
             else:
                 raise Exception('Compile c file to executable failed')
+
         # 在windows下，把.dll文件转.pyd
-        # 有些情况下，用ollvm转dll会不成功，命令是对的，重启能解决问题。
-        if WINDOWS() and os.path.exists(pyfile_noext + ".dll") and compile_to_library:
+        # NOTE:有些情况下，用ollvm转dll会不成功，命令是对的，重启能解决问题。
+        if WINDOWS() and os.path.exists(pyfile_noext + ".dll") and b_tolib:
             # print(pyfile_noext + ".dll")
             os.system("move {pyfile_noext}.dll {pyfile_noext}.pyd".format(pyfile_noext = pyfile_noext))
         # linux，change tarcget to 755
-        elif not WINDOWS() and not compile_to_library and os.path.exists(pyfile_noext):
+        elif not WINDOWS() and not b_tolib and os.path.exists(pyfile_noext):
             os.system('chmod 755 ' + pyfile_noext)
 
         # ########### delete temprary files
         temp_file_ext = ['.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']
 
         if level > 3:
-            if compile_to_library:
+            if b_tolib:
                 print('Completed %s.py to library, and keep all temp files and py file' % pyfile_noext)
             else:
                 print('Completed %s.py to execute, and keep all temp files and py file' % pyfile_noext)
         else:
             if level > 1:
-                if compile_to_library:
+                if b_tolib:
                     print('Completed %s.py to library, and keep py file' % pyfile_noext)
                 else:
                     print('Completed %s.py to execute, and keep py file' % pyfile_noext)
             else:
-                if compile_to_library:
+                if b_tolib:
                     print('Completed %s.py to library, and delete all temp files' % pyfile_noext)
                 else:
                     print('Completed %s.py to execute, and delete all temp files' % pyfile_noext)
@@ -292,10 +284,10 @@ def compile_file(pyfile_noext, template, compile_to_library = True, level = 0, p
 
 
 def file_to_library(pyfile_noext, template, level = 0):
-    compile_file(pyfile_noext, template, compile_to_library = True, level = level)
+    compile_file(pyfile_noext, template, b_tolib = True, level = level)
 
 def file_to_execute(pyfile_noext, template, level = 0):
-    compile_file(pyfile_noext, template, compile_to_library = False, level = level)
+    compile_file(pyfile_noext, template, b_tolib = False, level = level)
 
 
 # TODO, add delete_list to delete the unnecessary files or dirs during compile stage.
@@ -364,7 +356,7 @@ example:
 
     # ########### basic ########################
     level         = 0
-    to_library    = True
+    b_tolib       = True
     source_file   = ''
     source_dir    = ''
     commandcfg    = ''
@@ -410,10 +402,10 @@ example:
         elif key in ['-p', '--python']:
             python = value
         elif key in ['-x', '--execute']:
-            to_library = False
+            b_tolib = False
         elif key in ['-s', '--sync']:
             sync_only = True
-        elif key in ['-S', '--syncpyd']:
+        elif key in ['-S', '--sync_pyd']:
             sync_only = True
             sync_pyd  = True
         elif key in ['-k', '--keep']:
@@ -511,9 +503,9 @@ example:
                         except Exception:
                             pass
 
-        if library_template == '' and to_library:
+        if library_template == '' and b_tolib:
             raise Exception("Please check the commandcfg if library_template exists")
-        elif execute_template == '' and not to_library:
+        elif execute_template == '' and not b_tolib:
             raise Exception("Please check the commandcfg if execute_template exists")
 
         # ############ XXX do compile
@@ -523,7 +515,7 @@ example:
             shutil.copy(source_file, output_dir)
             pyfile_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
             # NOTE file可能会编译成library或者executable
-            if to_library:
+            if b_tolib:
                 file_to_library(pyfile_noext, library_template, level)
             else:
                 file_to_execute(pyfile_noext, execute_template, level)
