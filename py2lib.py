@@ -294,22 +294,22 @@ def file_to_execute(pyfile_noext, template, level = 0):
 
 
 # TODO, add delete_list to delete the unnecessary files or dirs during compile stage.
-def dir_to_librarys(output_dir, library_template, level = 0, mdir_list = [], mfile_list = []):
+def dir_to_librarys(output_dir, library_template, level = 0, mdir_list = [], maintain_flist = []):
     '''
     把原始的source，可能是file, 可能是dir， 同步到output_dir，并且根据library_template把py转成libray
     library_template: 写有转换模板里的文件里读出的转换模板语句
     mdir_list: 不要转的文件夹列表
-    mfile_list:  不要转的文件列表
+    maintain_flist:  不要转的文件列表
     '''
     for root, _, files in os.walk(output_dir):
         if root in mdir_list or os.path.basename(root) in mdir_list:
             continue
 
         for each_file in files:
-            if each_file in mfile_list or \
+            if each_file in maintain_flist or \
                     each_file.startswith(r".") or \
-                    os.path.join(root, each_file) in mfile_list or \
-                    os.path.join(os.path.basename(root), each_file) in mfile_list:
+                    os.path.join(root, each_file) in maintain_flist or \
+                    os.path.join(os.path.basename(root), each_file) in maintain_flist:
                 continue
 
             pyfile_noext = each_file.split('.')[0]
@@ -372,7 +372,7 @@ example:
     delete_list  = []
     exclude_list = []
     mdir_list    = []
-    mfile_list   = []
+    maintain_flist   = []
     # ########## template ########################
     library_template   = ''
     execute_template   = ''
@@ -406,6 +406,7 @@ example:
             python = value
         elif key in ['-x', '--execute']:
             b_compile2lib = False
+            maintain_flist.extend(value.split(","))
         elif key in ['-s', '--sync']:
             sync_only = True
         elif key in ['-S', '--sync_pyd']:
@@ -429,7 +430,7 @@ example:
             delete_list = value.split(",")
         # 要保留的file
         elif key in ['-m', '--maintain']:
-            mfile_list = value.split(",")
+            maintain_flist = value.split(",")
         # 要保留的dir
         elif key in ['-M', '--maintaindir']:
             tmp_list = value.split(",")
@@ -441,6 +442,7 @@ example:
                 mdir_list.append(d)
 
     ### exclude_list
+    maintain_flist = list(set(maintain_flist))
     exclude_list = list(set(['.gitignore', '.git', '.svn', '.root', '.vscode', '.idea', '__pycache__', '.task', '.vim', '.gitlab-ci.yml', '.pyc'] + exclude_list))
 
     ############# source_dir
@@ -525,7 +527,7 @@ example:
         elif os.path.isdir(source_dir):
             sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir = rm_target_dir)
             # NOTE 只会全部编译成library, 不会编译成可执行程序
-            dir_to_librarys(output_dir, library_template, level, mdir_list, mfile_list)
+            dir_to_librarys(output_dir, library_template, level, mdir_list, maintain_flist)
         else:
             print('neither source file nor source dir offered, please check!!!')
     else:
