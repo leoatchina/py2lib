@@ -324,7 +324,6 @@ def dir_to_librarys(output_dir, library_template, level = 0, maintain_dirs = [],
                 file_to_library(pyfile_noext, library_template, level)
 
 
-
 # MAIN
 if __name__ == '__main__':
     help_show = '''
@@ -500,12 +499,14 @@ example:
         if source_dir and os.path.isdir(source_dir) and not library_template is None:
             sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir = rm_target_dir)
             # NOTE 只会全部编译成library, 不会编译成可执行程序
+            print('======== compile %s to libraries ========' % source_dir)
             dir_to_librarys(output_dir, library_template, level, maintain_dirs, maintain_files)
             b_compiled = True
 
         b_py2exe = False
         for source_file in [py_lib_file, py_exe_file]:
             if source_file and os.path.isfile(source_file):
+                print('======== compile %s to library or executable ========' % source_file)
                 if not os.path.exists(output_dir):
                     os.makedirs(output_dir)
                 shutil.copy(source_file, output_dir)
