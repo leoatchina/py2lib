@@ -336,7 +336,7 @@ Usage: python py2lib.py [options] ...
 
 Options:
   -h, --help        Show the help info
-  -x, --execute     Compile to executable file
+  -e, --execute     Compile to executable file
   -s, --sync        Sync only
   -c, --config      Set the compile template config file, must be offered if not sync_only
   -f, --file        Single file, -f supervised -d when offered at same time
@@ -345,7 +345,7 @@ Options:
   -m, --maintain    The files you don't want to compile from py to library file
                     example: -m __init__.py,setup.py
   -M, --maintaindir like maintain, but dirs
-  -e, --exclude     Directories or files that you do not want to sync to output dir.
+  -x, --exclude     Directories or files that you do not want to sync to output dir.
                     __pycache__, .vscode, .git, .idea, .svn will always not be synced
   -l, --level       level == 5 confuse c files, keep c/o files and py file
                     level == 4 not confuse c files, keep c/o files and py file
@@ -354,8 +354,8 @@ Options:
                     level == 1 confuse c files, not keep temp files
                     level == 0 not confuse c files, not keep temp files
   -D, --delete      Files, dirs foreced to delete in the output_dir
-  -p, --python      Python executable file, default python
-  -i, --imports     hidden import
+  -p, --python      Python executable file, default 'python'
+  -i, --imports     hidden import, for pyinstaller/nuitka/etc.
 
 example:
   python py2lib.py -d test_dir -o target_dir -m __init__.py,setup.py -c compile_template.ini
@@ -407,7 +407,7 @@ example:
             all_imports = value.replace(' ', '').split(",")
         elif key in ['-p', '--python']:
             python = value
-        elif key in ['-x', '--execute']:
+        elif key in ['-e', '--execute']:
             py_exe_file = value
         elif key in ['-f', '--file']:
             py_lib_file = value
@@ -417,7 +417,7 @@ example:
             output_dir = value
         elif key in ['-d', '--directory']:
             source_dir = value
-        elif key in ['-e', '--exclude']:
+        elif key in ['-x', '--exclude']:
             exclude_list = value.split(",")
         elif key in ['-l', '--level']:
             level = int(value)
