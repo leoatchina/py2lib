@@ -3,8 +3,8 @@
 # File              : py2lib.py
 # Author            : taotao
 # Date              : 2021.01.07
-# Last Modified Date: 2022.09.22
-# Last Modified By  : taotao <taotao@myhexin.com>
+# Last Modified Date: 2022.09.27
+# Last Modified By  : leoatchina <leoatchina@outlook.com>
 
 from datetime import datetime
 import getopt
@@ -29,7 +29,6 @@ SEED = '0x' + datetime.today().strftime('%Y%m%d')
 chs_regex = "[\u4e00-\u9fa5]"
 
 all_imports = []
-all_pyfiles = []
 
 def WINDOWS():
     return sys.platform.startswith('win')
