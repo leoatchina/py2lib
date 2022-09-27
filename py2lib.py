@@ -343,12 +343,12 @@ Options:
   -M, --maintaindir like maintain, but dirs
   -e, --exclude     Directories or files that you do not want to sync to output dir.
                     __pycache__, .vscode, .git, .idea, .svn will always not be synced
-  -l, --level       level == 5 confuse c file, keep temp files and py file
-                    level == 4 not confuse c file, keep temp files and py file
-                    level == 3 confuse c file, keep py file only
-                    level == 2 not confuse c file, keep py file only
-                    level == 1 confuse c file, not keep temp files
-                    level == 0 not confuse c file, not keep temp files
+  -l, --level       level == 5 confuse c files, keep c/o files and py file
+                    level == 4 not confuse c files, keep c/o files and py file
+                    level == 3 confuse c files, keep py files
+                    level == 2 not confuse c files, keep py files
+                    level == 1 confuse c files, not keep temp files
+                    level == 0 not confuse c files, not keep temp files
   -D, --delete      Files, dirs foreced to delete in the output_dir
   -p, --python      Python executable file, default python
   -i, --imports     hidden import

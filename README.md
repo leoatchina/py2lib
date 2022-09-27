@@ -26,18 +26,18 @@ Options:
   -d, --directory     源文件夹
   -o, --output        目标文件夹，默认是./output
   -c, --commandfile   在需要编译的情况下，必须提供，为编译模板
-  -x, --execute       指定编译为可执行文件的文件， 用逗号隔开
+  -x, --execute       指定编译为可执行文件的文件, 用逗号隔开
   -m, --maintain      指定不被编译的文件，用逗号隔开
                       example: -m __init__.py,setup.py
   -M, --maintaindir   不被编译的文件夹，其下所有文件都不会被编译
   -e, --exclude       不被同步的文件夹， __pycache__, .vscode, .git, .idea, .svn, .hg肯定不被同步
-  -k, --keep          keep == 5 对c文件进一步混淆，保持临时文件（o文件等，进行调试时用的到）
-                      keep == 4 不对c文件进一步混淆, 保持临时文件
-                      keep == 3 对c文件进一步混淆, 只保持py文件
-                      keep == 2 不对c文件进一步混淆,只保持py文件
-                      keep == 1 对c文件进一步混淆, 不保持临时文件
-                      keep == 0 不对c文件进一步混淆, 不保持临时文件
-                      注: 在换ollvm6.0后，可能对c进行混淆有问题，因此要k值取0，2，4
+  -l, --level         level == 5 对c文件进一步混淆，保持临时文件（o文件等，进行调试时用的到）
+                      level == 4 不对c文件进一步混淆, 保持临时文件
+                      level == 3 对c文件进一步混淆, 只保持py文件
+                      level == 2 不对c文件进一步混淆,只保持py文件
+                      level == 1 对c文件进一步混淆, 不保持临时文件
+                      level == 0 不对c文件进一步混淆, 不保持临时文件
+                      NOTE, 注意: 在ollvm6.0作编译器时，在对c进行混淆后编译有问题，因此要l值取0，2，4
   -D, --delete        在编译结束后要删除的文件
 
 example:
