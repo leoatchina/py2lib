@@ -6,13 +6,13 @@
 # Last Modified Date: 2022.09.22
 # Last Modified By  : taotao <taotao@myhexin.com>
 
-import re
-import os
-import sys
-import getopt
-import shutil
-import logging
 from datetime import datetime
+import getopt
+import logging
+import os
+import re
+import shutil
+import sys
 
 
 logger = logging.getLogger(__name__)
@@ -23,8 +23,9 @@ formatter = logging.Formatter('%(asctime)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
+
 # seed is for cypher seed
-seed = '0x' + datetime.today().strftime('%Y%m%d')
+SEED = '0x' + datetime.today().strftime('%Y%m%d')
 chs_regex = "[\u4e00-\u9fa5]"
 
 all_imports = []
@@ -41,7 +42,7 @@ def run_cmd(cmd):
         print('The command ' + cmd + ' not work')
         print(e)
         print('================================')
-        return 1
+        return None
     return ret
 
 def check_in_exclude_list(filename, exclude_list):
@@ -132,7 +133,7 @@ def trim_pyfile(pyfile, wrtfile = None):
                 except Exception:
                     pass
 
-def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, rm_target_dir = True, sync_pyd = False):
+def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False, rm_target_dir = True):
     '''
     同步source_dir 和 targe_dir, 并排除exclude_list
     exclude_list 由basename, 以及相应的后缀组成
@@ -160,8 +161,6 @@ def sync_dirs(source_dir, target_dir, exclude_list = [], overwrite_file = False,
                 os.makedirs(target, exist_ok = True)
             sync_dirs(source, target, exclude_list, rm_target_dir = False)
         else:
-            if sync_pyd and not source.endswith(r'pyd'):
-                continue
             if overwrite_file:
                 pass
             elif not os.path.exists(target):
@@ -208,63 +207,64 @@ def confuse(c_source_file):
                 fp.write(line)
 
 
-def compile_file(pyfile_noext, template, b_compile2lib = True, level = 0, print_cmd = False):
+def compile_file(pyfile_noext, template, b_py2lib = True, level = 0, print_cmd = False):
     '''
     pyfile_noext is the path of the py file without .py surfix
     it will be converted to c file and then compile to .so  or .dll file
     '''
     try:
         # cython to c file
-        if b_compile2lib:
+        if b_py2lib:
             cmd = '{python} -m cython -3 {pyfile_noext}.py -D'.format(pyfile_noext = pyfile_noext, python = python)
         else:
             cmd = '{python} -m cython -3 {pyfile_noext}.py --embed -D'.format(pyfile_noext = pyfile_noext, python = python)
         ret = run_cmd(cmd)
-        if ret > 0:
+        if ret is None:
             raise Exception('python file to c file with cython failed')
-        # 在奇数情况下,再混淆加密，但是现在暂时用不到
+
+        # NOTE: 在奇数情况下,再混淆加密，但是现在暂时用不到
         if (level % 2) == 1:
             confuse(pyfile_noext + '.c')
 
-        cmd = template.format(pyfile_noext = pyfile_noext, seed = seed)
+        cmd = template.format(pyfile_noext = pyfile_noext, seed = SEED)
         if level > 3 and print_cmd:
             print(cmd)
         ret = run_cmd(cmd)
 
-        if ret > 0:
-            if b_compile2lib:
+        if ret is None:
+            if b_py2lib:
                 raise Exception('Compile c file to dynamic link file failed')
             else:
                 raise Exception('Compile c file to executable failed')
 
         # 在windows下，把.dll文件转.pyd
-        # NOTE:有些情况下，用ollvm转dll会不成功，命令是对的，重启能解决问题。
-        if WINDOWS() and os.path.exists(pyfile_noext + ".dll") and b_compile2lib:
-            # print(pyfile_noext + ".dll")
+        if WINDOWS() and os.path.exists(pyfile_noext + ".dll") and b_py2lib:
+            # NOTE: 有些情况下，用ollvm转dll会不成功，命令是对的，重启能解决问题。
             os.system("move {pyfile_noext}.dll {pyfile_noext}.pyd".format(pyfile_noext = pyfile_noext))
         # linux，change tarcget to 755
         else:
-            if b_compile2lib:
+            if b_py2lib:
                 os.system('chmod 644 ' + pyfile_noext + ".so")
-            elif not b_compile2lib and os.path.isfile(pyfile_noext):
+            elif not b_py2lib and os.path.isfile(pyfile_noext):
+                os.system('rm {}.so'.format(pyfile_noext))
                 os.system('chmod 755 ' + pyfile_noext)
 
         # ########### delete temprary files
         temp_file_ext = ['.pyc', '.cpp', '.o', '.c', '.exp', '.obj', '.lib']
 
         if level > 3:
-            if b_compile2lib:
+            if b_py2lib:
                 print('Completed %s.py to library, and keep all temp files and py file' % pyfile_noext)
             else:
                 print('Completed %s.py to execute, and keep all temp files and py file' % pyfile_noext)
         else:
             if level > 1:
-                if b_compile2lib:
+                if b_py2lib:
                     print('Completed %s.py to library, and keep py file' % pyfile_noext)
                 else:
                     print('Completed %s.py to execute, and keep py file' % pyfile_noext)
             else:
-                if b_compile2lib:
+                if b_py2lib:
                     print('Completed %s.py to library, and delete all temp files' % pyfile_noext)
                 else:
                     print('Completed %s.py to execute, and delete all temp files' % pyfile_noext)
@@ -287,29 +287,32 @@ def compile_file(pyfile_noext, template, b_compile2lib = True, level = 0, print_
 
 
 def file_to_library(pyfile_noext, template, level = 0):
-    compile_file(pyfile_noext, template, b_compile2lib = True, level = level)
+    if template is None:
+        raise Exception('library_template is None')
+    compile_file(pyfile_noext, template, b_py2lib = True, level = level)
 
 def file_to_execute(pyfile_noext, template, level = 0):
-    compile_file(pyfile_noext, template, b_compile2lib = False, level = level)
-
+    if template is None:
+        raise Exception('execute_template is None')
+    compile_file(pyfile_noext, template, b_py2lib = False, level = level)
 
 # TODO, add delete_list to delete the unnecessary files or dirs during compile stage.
-def dir_to_librarys(output_dir, library_template, level = 0, mdir_list = [], maintain_flist = []):
+def dir_to_librarys(output_dir, library_template, level = 0, maintain_dirs = [], maintain_files = []):
     '''
     把原始的source，可能是file, 可能是dir， 同步到output_dir，并且根据library_template把py转成libray
     library_template: 写有转换模板里的文件里读出的转换模板语句
-    mdir_list: 不要转的文件夹列表
-    maintain_flist:  不要转的文件列表
+    maintain_dirs: 不要转的文件夹列表
+    maintain_files:  不要转的文件列表
     '''
     for root, _, files in os.walk(output_dir):
-        if root in mdir_list or os.path.basename(root) in mdir_list:
+        if root in maintain_dirs or os.path.basename(root) in maintain_dirs:
             continue
 
         for each_file in files:
-            if each_file in maintain_flist or \
+            if each_file in maintain_files or \
                     each_file.startswith(r".") or \
-                    os.path.join(root, each_file) in maintain_flist or \
-                    os.path.join(os.path.basename(root), each_file) in maintain_flist:
+                    os.path.join(root, each_file) in maintain_files or \
+                    os.path.join(os.path.basename(root), each_file) in maintain_files:
                 continue
 
             pyfile_noext = each_file.split('.')[0]
@@ -321,6 +324,8 @@ def dir_to_librarys(output_dir, library_template, level = 0, mdir_list = [], mai
                 file_to_library(pyfile_noext, library_template, level)
 
 
+
+# MAIN
 if __name__ == '__main__':
     help_show = '''
 py2lib is tool to change the .py to .so or .pyd, you can use it to hide the source code of py
@@ -333,7 +338,6 @@ Options:
   -h, --help        Show the help info
   -x, --execute     Compile to executable file
   -s, --sync        Sync only
-  -S, --syncpyd     Sync pyd only
   -c, --config      Set the compile template config file, must be offered if not sync_only
   -f, --file        Single file, -f supervised -d when offered at same time
   -d, --directory   Directory of your project (if use -d, you change the whole directory)
@@ -359,37 +363,32 @@ example:
 
     # ########### basic ########################
     level         = 0
-    b_compile2lib = True
-    source_file   = ''
-    source_dir    = ''
-    config        = ''
+    py_lib_file   = None
+    py_exe_file   = None
+    source_dir    = None
+    config        = None
     output_dir    = './output'
     sync_only     = False
-    sync_pyd      = False
     rm_target_dir = True
     python        = "python"
     # ########### list #######################
     delete_list  = []
     exclude_list = []
-    mdir_list    = []
-    maintain_flist   = []
+    maintain_dirs    = []
+    maintain_files   = []
     # ########## template ########################
-    library_template   = ''
-    execute_template   = ''
+    library_template   = None
+    execute_template   = None
     compile_command    = ''
     run_command        = ''
     addtional_commands = []
 
-    # ######### sync_pyd ########
-    pyd_source_dir = ''
-    pyd_target_dir = ''
-
     try:
         options, args = getopt.getopt(
             sys.argv[1:],
-            "hxsSkp:c:f:d:o:m:M:e:l:D:",
-            ["help", "execute", "sync", "sync_pyd", "keep" \
-             "python=", "config=", "file=", "directory=", "output=", "maintain=", "maintaindir=", "exclude=", "level=", "delete="]
+            "hskp:c:x:f:d:o:m:M:e:l:D:i:",
+            ["help","sync", "keep",
+             "python=", "config=", "file=", "execute=", "directory=", "output=", "maintain_files=", "maintain_dirs=", "exclude=", "level=", "delete=", "imports="]
         )
     except Exception as e:
         print('get options error', e)
@@ -400,24 +399,20 @@ example:
         if key in ['-h', '--help']:
             print(help_show)
             sys.exit(0)
+        elif key in ['-s', '--sync']:
+            sync_only = True
+        elif key in ['-k', '--keep']:
+            rm_target_dir = False
         elif key in ['-i', '--imports']:
             all_imports = value.replace(' ', '').split(",")
         elif key in ['-p', '--python']:
             python = value
         elif key in ['-x', '--execute']:
-            b_compile2lib = False
-            maintain_flist.extend(value.split(","))
-        elif key in ['-s', '--sync']:
-            sync_only = True
-        elif key in ['-S', '--sync_pyd']:
-            sync_only = True
-            sync_pyd  = True
-        elif key in ['-k', '--keep']:
-            rm_target_dir = False
+            py_exe_file = value
+        elif key in ['-f', '--file']:
+            py_lib_file = value
         elif key in ['-c', '--config']:
             config = value
-        elif key in ['-f', '--file']:
-            source_file = value
         elif key in ['-o', '--output']:
             output_dir = value
         elif key in ['-d', '--directory']:
@@ -429,47 +424,45 @@ example:
         elif key in ['-D', '--delete']:
             delete_list = value.split(",")
         # 要保留的file
-        elif key in ['-m', '--maintain']:
-            maintain_flist = value.split(",")
+        elif key in ['-m', '--maintain_files']:
+            maintain_files = value.split(",")
         # 要保留的dir
-        elif key in ['-M', '--maintaindir']:
+        elif key in ['-M', '--maintain_dirs']:
             tmp_list = value.split(",")
             for d in tmp_list:
                 if d.startswith(r"./"):
                     d = d[2:]
                 if d.endswith(r"/"):
                     d = d[:-1]
-                mdir_list.append(d)
+                maintain_dirs.append(d)
 
-    ### exclude_list
-    maintain_flist = list(set(maintain_flist))
+    # clean maintain_files, exclude_list
+    maintain_files = list(set(maintain_files))
     exclude_list = list(set(['.gitignore', '.git', '.svn', '.root', '.vscode', '.idea', '__pycache__', '.task', '.vim', '.gitlab-ci.yml', '.pyc'] + exclude_list))
 
-    ############# source_dir
-    if len(source_dir) > 0 and source_dir[-1] == r'/':
-        source_dir = source_dir[-1]
+    # source_dir and output_dir
+    if len(source_dir) > 0:
+        source_dir = re.sub(r"/+$", "", source_dir)
 
-    ######## output_dir
-    if len(output_dir) > 0 and output_dir[-1] == r'/':
-        output_dir = output_dir[-1]
+    if len(output_dir) > 0:
+        output_dir = re.sub(r"/+$", "", output_dir)
 
     if os.path.abspath(source_dir) == os.path.abspath(output_dir):
         print("Source dir equals output dir!")
         sys.exit(1)
 
+    # NOTE: main cause
     if sync_only:
-        if os.path.isfile(source_file):
-            if not sync_pyd or sync_pyd and source_file.endswith(r'.pyd'):
+        for source_file in [py_lib_file, py_exe_file]:
+            if os.path.isfile(source_file):
                 if not os.path.exists(output_dir):
                     os.makedirs(output_dir)
                 shutil.copy(source_file, output_dir)
-        elif os.path.isdir(source_dir):
-            if sync_pyd:
-                sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir=False, sync_pyd=True)
-            else:
-                sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir=rm_target_dir)
+        if os.path.isdir(source_dir):
+            sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir=rm_target_dir)
+
+    # Note, using config to create complile command
     elif os.path.isfile(config):
-        # check the template
         with open(config) as fp:
             lines = fp.readlines()
             for line in lines:
@@ -479,28 +472,22 @@ example:
                         try:
                             library_template = r"=".join(line.split(r'=')[1:]).strip()
                         except Exception:
-                            library_template = ''
+                            library_template = None
                     elif line.startswith("execute_template"):
                         try:
                             execute_template = r"=".join(line.split(r'=')[1:]).strip()
                         except Exception:
-                            execute_template = ''
+                            execute_template = None
                     elif line.startswith("compile_command"):
                         try:
                             compile_command = r"=".join(line.split(r'=')[1:]).strip()
                         except Exception:
-                            compile_command = ''
-                    elif line.startswith("pyd_sync_dirs"):
-                        try:
-                            pyd_sync_dirs = line.split("=")[1].strip()
-                            pyd_source_dir, pyd_target_dir = re.sub(r"\s{2,}", " ", pyd_sync_dirs).split(" ")
-                        except Exception:
-                            pyd_source_dir = pyd_target_dir = ''
+                            compile_command = None
                     elif line.startswith('run_command'):
                         try:
                             run_command = line.split("=")[1].strip()
                         except Exception:
-                            run_command = ''
+                            run_command = None
                     elif line.startswith('addtional_command'):
                         try:
                             addtional_command = "=".join(line.split("=")[1:])
@@ -508,28 +495,35 @@ example:
                         except Exception:
                             pass
 
-        if library_template == '' and b_compile2lib:
-            raise Exception("Please check the config if library_template exists")
-        elif execute_template == '' and not b_compile2lib:
-            raise Exception("Please check the config if execute_template exists")
-
-        # ############ XXX do compile
-        if os.path.isfile(source_file):
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-            shutil.copy(source_file, output_dir)
-            pyfile_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
-            # NOTE file可能会编译成library或者executable
-            if b_compile2lib:
-                file_to_library(pyfile_noext, library_template, level)
-            else:
-                file_to_execute(pyfile_noext, execute_template, level)
-        elif os.path.isdir(source_dir):
+        # complile dirs first
+        b_compiled = False
+        if source_dir and os.path.isdir(source_dir) and not library_template is None:
             sync_dirs(source_dir, output_dir, exclude_list, rm_target_dir = rm_target_dir)
             # NOTE 只会全部编译成library, 不会编译成可执行程序
-            dir_to_librarys(output_dir, library_template, level, mdir_list, maintain_flist)
-        else:
-            print('neither source file nor source dir offered, please check!!!')
+            dir_to_librarys(output_dir, library_template, level, maintain_dirs, maintain_files)
+            b_compiled = True
+
+        b_py2exe = False
+        for source_file in [py_lib_file, py_exe_file]:
+            if source_file and os.path.isfile(source_file):
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+                shutil.copy(source_file, output_dir)
+                exclude_list.append(source_file)
+                pyfile_noext = os.path.join(output_dir, os.path.basename(source_file)).replace(r'.py', '')
+                if b_py2exe:
+                    file_to_execute(pyfile_noext, execute_template, level)
+                else:
+                    file_to_library(pyfile_noext, library_template, level)
+                b_compiled = True
+                # NOTE: b_py2exe -> True, 不过不一定编译
+                b_py2exe = True
+            else:
+                b_py2exe = True
+
+        if not b_compiled:
+            print('None compiled, please check the template and command args')
+
     else:
         print(config)
         raise Exception("Please check the config exists")
@@ -544,11 +538,6 @@ example:
         else:
             hidden_import = ""
 
-        # if r"{key}" in compile_command:
-        #     key = " --key={key} ".format(key=datetime.now().strftime("%Y%m%d"))
-        # else:
-        #     key = ''
-
         if source_dir:
             if compile_command:
                 cmd = compile_command.format(hidden=hidden_import)
@@ -556,12 +545,6 @@ example:
                 print(cmd)
                 print("============================================================")
                 os.system(cmd)
-
-            if pyd_source_dir and pyd_target_dir:
-                print("=================== sync command ============================")
-                print('copy all pyd from %s to %s' % (pyd_source_dir, pyd_target_dir))
-                sync_dirs(pyd_source_dir, pyd_target_dir, exclude_list=exclude_list, rm_target_dir=False, sync_pyd=True)
-                print("============================================================")
 
             if addtional_commands:
                 print("=================== addtional command ======================")
