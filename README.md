@@ -20,25 +20,28 @@ pip install cython
 Usage: python py2lib.py [options] ...
 
 Options:
-  -h, --help          帮助
-  -s, --sync          只同步不编译, -s 优先级高于 -f -d
-  -f, --file          单文件模式， -f 优先 级大于 -d
-  -d, --directory     源文件夹
-  -o, --output        目标文件夹，默认是./output
-  -c, --commandfile   在需要编译的情况下，必须提供，为编译模板
-  -x, --execute       指定编译为可执行文件的文件, 用逗号隔开
-  -m, --maintain      指定不被编译的文件，用逗号隔开
-                      example: -m __init__.py,setup.py
-  -M, --maintaindir   不被编译的文件夹，其下所有文件都不会被编译
-  -e, --exclude       不被同步的文件夹， __pycache__, .vscode, .git, .idea, .svn, .hg肯定不被同步
-  -l, --level         level == 5 对c文件进一步混淆，保持临时文件（o文件等，进行调试时用的到）
-                      level == 4 不对c文件进一步混淆, 保持临时文件
-                      level == 3 对c文件进一步混淆, 只保持py文件
-                      level == 2 不对c文件进一步混淆,只保持py文件
-                      level == 1 对c文件进一步混淆, 不保持临时文件
-                      level == 0 不对c文件进一步混淆, 不保持临时文件
-                      NOTE, 注意: 在ollvm6.0作编译器时，在对c进行混淆后编译有问题，因此要l值取0，2，4
-  -D, --delete        在编译结束后要删除的文件
+  -h, --help        Show the help info
+  -e, --execute     Compile to executable file
+  -s, --sync        Sync only
+  -c, --config      Set the compile template config file, must be offered if not sync_only
+  -f, --file        Single file, -f supervised -d when offered at same time
+  -d, --directory   Directory of your project (if use -d, you change the whole directory)
+  -o, --output      Directory to store the compile results, must be different to source_dir
+  -m, --maintain    The files you don't want to compile from py to library file
+                    example: -m __init__.py,setup.py
+  -M, --maintaindir like maintain, but dirs
+  -x, --exclude     Directories or files that you do not want to sync to output dir.
+                    __pycache__, .vscode, .git, .idea, .svn will always not be synced
+  -l, --level       level == 5 confuse c files, keep c/o files and py file
+                    level == 4 not confuse c files, keep c/o files and py file
+                    level == 3 confuse c files, keep py files
+                    level == 2 not confuse c files, keep py files
+                    level == 1 confuse c files, not keep temp files
+                    level == 0 not confuse c files, not keep temp files
+  -D, --delete      Files, dirs foreced to delete in the output_dir
+  -p, --python      Python executable file, default 'python'
+  -i, --imports     hidden import, for pyinstaller/nuitka/etc.
+
 
 example:
   python py2lib.py -d test_dir -o target_dir -m __init__.py,setup.py -c config.ini
